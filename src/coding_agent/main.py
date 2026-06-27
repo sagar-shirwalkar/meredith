@@ -1,10 +1,10 @@
 """
-CLI entry point for the mentis-agent.
+CLI entry point for the meredith.
 
 Usage:
-    mentis-agent "Add JWT authentication to the login endpoint"
-    mentis-agent --profile local_model "Fix the failing test in test_auth.py"
-    mentis-agent --profile large_model --working-dir ./myproject "Refactor the user service"
+    meredith "Add JWT authentication to the login endpoint"
+    meredith --profile local_model "Fix the failing test in test_auth.py"
+    meredith --profile large_model --working-dir ./myproject "Refactor the user service"
 
 Wires together config loading, LLM client creation, and the agent loop.
 The agent loop itself lives in agent/core.py; this module is the orchestrator.
@@ -148,7 +148,7 @@ async def run_agent(config: AppConfig, task: str) -> None:
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(
-        prog="mentis-agent",
+        prog="meredith",
         description="AI coding agent with RAG, ACP, and smart context management",
     )
     parser.add_argument(

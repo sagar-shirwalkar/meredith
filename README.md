@@ -1,15 +1,17 @@
-<h1>
-  <picture>
-    <img src="assets/mentis-agent.svg" width="36" height="36" alt="" style="vertical-align: middle; margin-right: 8px;">
-  </picture>
-  Mentis-Agent
-</h1>
+# Meredith
 
 [![Python](https://img.shields.io/badge/Python-3.13-fbad2b?style=for-the-badge&label=Python&labelColor=gray&logo=python&logoColor=blue)](https://python.org)
-[![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/mentis-agent/v0.2.1?style=for-the-badge)](https://github.com/sagar-shirwalkar/mentis-agent/actions)
+[![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/meredith/v0.2.1?style=for-the-badge)](https://github.com/sagar-shirwalkar/meredith/actions)
 [![AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](LICENSE)
 
-Mentis is an AI coding agent purpose-built for software engineering workflows. It operates a **ReAct loop** (Reason → Act → Observe) with strategic planning, RAG-augmented code understanding, and ACP (Agent Client Protocol) integration for native editor support.
+<p align="center">
+  <picture>
+    <img src="assets/meredith.svg" width="200" height="200" alt="Meredith">
+  </picture>
+</p>
+
+
+Meredith is an AI coding agent purpose-built for software engineering workflows. It operates a **ReAct loop** (Reason → Act → Observe) with strategic planning, RAG-augmented code understanding, and ACP (Agent Client Protocol) integration for native editor support.
 
 - **Remote models** — any OpenAI-compatible API (OpenAI, Anthropic, Together AI, Fireworks, **Opencode**, Azure OpenAI, etc.)
 - **Local models** — Ollama (7–70B) and MLX on Apple Silicon
@@ -34,16 +36,18 @@ Mentis is an AI coding agent purpose-built for software engineering workflows. I
 ### 1. Install dependencies & hooks
 
 ```bash
-make setup                                                      # Auto-detects Apple Silicon for MLX
+make setup                                                      # Install deps, pre-commit hooks, and run lint (also adds MLX extras on Apple Silicon)
 ```
 
 Or manually:
 
 ```bash
 uv sync --extra dev                                    # Core + dev dependencies (all platforms)
-uv sync --extra mlx                                   # Apple Silicon only: mlx + mlx-lm
+uv sync --extra dev --extra mlx                        # Apple Silicon: add mlx + mlx-lm
 uv run pre-commit install                              # Enable secret-scanning & quality hooks
 ```
+
+> **Note:** `uv sync` replaces installed extras on each run. To combine dev and mlx extras, pass them together with a single `--extra` flag per extra (e.g. `--extra dev --extra mlx`). Running separate commands will keep only the last one's extras.
 
 ### 2. Configure credentials
 
@@ -55,9 +59,9 @@ export BRAVE_API_KEY="..."                        # Optional: enable Brave web s
 ### 3. Run the agent
 
 ```bash
-uv run mentis-agent "Add JWT authentication to the login endpoint"   # Execute a task
-uv run mentis-agent --profile local_model "Fix the failing test"     # Use a local model
-uv run mentis-agent -v "Explain the authentication flow"             # Verbose logging
+uv run meredith "Add JWT authentication to the login endpoint"   # Execute a task
+uv run meredith --profile local_model "Fix the failing test"     # Use a local model
+uv run meredith -v "Explain the authentication flow"             # Verbose logging
 ```
 
 ### 4. Start the ACP server (for editor integration)
@@ -84,7 +88,7 @@ Edit `config/base.yaml` for shared defaults and `config/large_model.yaml` or `co
 ## Project Structure
 
 ```
-mentis-agent/
+meredith/
 ├── pyproject.toml                    # Package metadata, dependencies, tool config
 ├── config/
 │   ├── base.yaml                     # Shared defaults (token limits, thresholds, paths)
@@ -125,9 +129,28 @@ mentis-agent/
 │   └── acp/                          # Agent Client Protocol server
 │       └── server.py                 # ACP stdio server for editor integration
 ├── assets/                           # Project icon and branding assets
-│   └── mentis-agent.svg
-├── tests/                                 # Test suite
-│   └── test_import.py                    # Package import smoke test
+│   └── meredith.svg
+├── tests/                                 # Test suite (224 tests covering >80% of core modules)
+│   ├── __init__.py
+│   ├── conftest.py                       # Shared fixtures (config, types, streaming)
+│   ├── test_import.py                    # Package import smoke test
+│   ├── test_types.py                     # Enums, dataclasses, Plan, ToolSchema
+│   ├── test_config.py                    # YAML loading, merging, frozen dataclasses
+│   ├── test_llm_base.py                  # Token counting, streaming chunks, tool call parsing
+│   ├── test_budget.py                    # TokenBudget zone accounting, estimates
+│   ├── test_compressor.py                # Output compression strategies (test, search, file)
+│   ├── test_context_manager.py           # Hierarchical context zones, rotation, compression
+│   ├── test_tool_base.py                 # ToolRegistry, executor dispatch, schemas
+│   ├── test_router.py                    # Pre/post execution rules, availability, diagnostics
+│   ├── test_verifier.py                  # Post-step verification checks
+│   ├── test_detector.py                  # Loop detection (exact, error, semantic, stall)
+│   ├── test_strategies.py                # Recovery interventions
+│   ├── test_planner.py                   # FlatPlanner / TreeOfThoughtPlanner parsing
+│   ├── test_memory.py                    # MemoryStore SQLite lifecycle, recall, pruning
+│   ├── test_chunker.py                   # RegexChunker chunking strategies
+│   ├── test_indexer.py                   # Indexer file indexing and search
+│   ├── test_retriever.py                 # BM25Retriever scoring and retrieval
+│   └── test_main.py                      # CLI argument parsing, client factory
 ├── skills/                           # Agent skill definitions
 │   ├── code_review/SKILL.md
 │   └── debugging/SKILL.md
@@ -186,14 +209,14 @@ The agent operates in a continuous ReAct loop:
 
 ### Zed ACP Registry
 
-The [ACP Registry](https://agentclientprotocol.com/registry) is a curated directory of ACP-compatible agents. To publish mentis-agent:
+The [ACP Registry](https://agentclientprotocol.com/registry) is a curated directory of ACP-compatible agents. To publish meredith:
 
 1. **Fork the registry** at [github.com/agentclientprotocol/registry](https://github.com/agentclientprotocol/registry).
 2. **Add your agent definition** to `agents/` (follow the existing entries as a template):
 
 ```yaml
-# agents/mentis-agent.yml
-name: mentis-agent
+# agents/meredith.yml
+name: meredith
 description: AI coding agent with RAG, smart context, and loop recovery
 command: uv
 args:
@@ -206,7 +229,7 @@ args:
 version: 0.2.3
 ```
 
-3. **Add an icon** — use the icon at [`assets/mentis-agent.svg`](assets/mentis-agent.svg).
+3. **Add an icon** — use the icon at [`assets/meredith.svg`](assets/meredith.svg).
 4. **Open a pull request** to the registry repository.
 
 The registry supports authentication methods, version tracking, and links to source. See the [registry documentation](https://github.com/agentclientprotocol/registry) for full details.
@@ -250,19 +273,21 @@ The build step requires a `PYPI_TOKEN` secret configured in your GitHub reposito
 ## Development
 
 ```bash
-make setup                                                      # One-shot: install deps + hooks + lint
+make setup                                                      # One-shot: install deps, hooks, and lint (also adds MLX extras on Apple Silicon)
 ```
 
 Or step by step:
 
 ```bash
 uv sync --extra dev                                    # Core + dev dependencies (all platforms)
-uv sync --extra mlx                                   # Apple Silicon only: mlx + mlx-lm
+uv sync --extra dev --extra mlx                        # Apple Silicon: add mlx + mlx-lm
 uv run pre-commit install                              # Enable secret-scanning hooks
 make lint                                               # ruff check
 make format                                             # ruff format
 make typecheck                                          # mypy --strict (requires mypy installed)
 make test                                               # pytest -v
+uv run pytest tests/ -v --cov=coding_agent                    # Run tests with coverage report
+uv run pytest tests/ -v --cov=coding_agent --cov-report=html  # Generate HTML coverage report
 make check                                              # lint + typecheck + test (CI equivalent)
 make clean                                              # Remove caches and build artifacts
 ```

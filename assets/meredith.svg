@@ -5,7 +5,6 @@
       <stop offset="100%" stop-color="#ff6b00"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" fill="#0a0a0a"/>
   <g shape-rendering="crispEdges">
     <rect x="72" y="17" width="34" height="34" fill="url(#g)"/>
     <rect x="109" y="17" width="34" height="34" fill="url(#g)"/>

@@ -351,7 +351,7 @@ class WebTools(ToolExecutor):
         try:
             resp = await self._http.get(
                 fetch_url,
-                headers={"User-Agent": "mentis-agent/0.3"},
+                headers={"User-Agent": "meredith/0.3"},
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:

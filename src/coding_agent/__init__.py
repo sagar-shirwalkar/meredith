@@ -1,5 +1,5 @@
 """
-mentis-agent: A modern AI coding agent with RAG, ACP integration,
+meredith: A modern AI coding agent with RAG, ACP integration,
 and smart context management.
 
 Supports any OpenAI-compatible remote API (Claude, GPT, Opencode, etc.)

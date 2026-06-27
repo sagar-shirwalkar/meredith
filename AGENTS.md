@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is mentis-agent: a modern AI coding agent with RAG,
+This is meredith: a modern AI coding agent with RAG,
 ACP (Agent Client Protocol) integration, and smart context
 management. It supports both large remote models via any
 OpenAI-compatible API (Claude, GPT, Opencode, etc.) and

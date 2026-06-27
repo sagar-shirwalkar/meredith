@@ -89,8 +89,8 @@ class CodingAgentServer(Agent):
             protocol_version=PROTOCOL_VERSION,
             agent_capabilities=AgentCapabilities(),
             agent_info=Implementation(
-                name="mentis-agent",
-                title="mentis-agent",
+                name="meredith",
+                title="meredith",
                 version="0.2.3",
             ),
         )

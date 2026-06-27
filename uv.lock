@@ -528,7 +528,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mentis-agent"
+name = "meredith"
 version = "0.2.3"
 source = { editable = "." }
 dependencies = [
