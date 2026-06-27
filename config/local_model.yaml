@@ -1,0 +1,48 @@
+# ──────────────────────────────────────────────────────────────
+# Local-model overrides (Ollama 7-13B, MLX)
+# Merged on top of base.yaml.
+# ──────────────────────────────────────────────────────────────
+
+llm:
+  provider: "local"
+  model: "qwen3-coder:14b"
+  ollama_base: "http://localhost:11434"
+  mlx_model_path: null # Set to local MLX model dir if using MLX directly
+  temperature: 0.1 # Lower temp — local models need more guidance
+  max_response_tokens: 2048
+  streaming: true
+  # Fallback: if Ollama is down, try MLX subprocess
+  mlx_fallback: false
+
+agent:
+  planner_type: "flat" # Local models struggle with tree-of-thought
+  planner_model: null # Same model does planning
+  verifier_concurrent: false # Don't run verifier concurrently — save compute
+  max_steps: 30 # Shorter horizon to avoid context overflow
+
+context:
+  max_tokens: 32000 # Typical 7-13B context window
+  zones:
+    immutable: { priority: 0, max_tokens: 2000 }
+    task: { priority: 1, max_tokens: 1500 }
+    working: { priority: 2, max_tokens: 6000 }
+    episodic: { priority: 3, max_tokens: 2000 }
+    semantic: { priority: 4, max_tokens: 1000 }
+    scratch: { priority: 5, max_tokens: 500 }
+
+tools:
+  router:
+    strategy: "rules_only" # Local models can't reliably choose tools via LLM
+    learned_preferences: false
+  fs:
+    max_read_lines: 50 # Smaller reads to avoid context overflow
+  search:
+    max_results: 15
+  web:
+    backend: "brave" # Simplest API, good enough
+
+rag:
+  retrieval:
+    top_k: 5 # Fewer chunks — less noise for smaller models
+  chunk:
+    max_lines: 40 # Smaller chunks

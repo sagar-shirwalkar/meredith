@@ -1,0 +1,80 @@
+# ──────────────────────────────────────────────────────────────
+# Base configuration — shared by all agent variants.
+# Model-specific files (large_model.yaml, local_model.yaml)
+# override these values.
+# ──────────────────────────────────────────────────────────────
+
+agent:
+  max_steps: 50 # Hard cap on ReAct loop iterations
+  step_timeout_seconds: 120 # Per-tool-call timeout
+  checkpoint_every_n_steps: 3 # Auto-checkpoint interval
+  working_directory: "." # Root of the project the agent operates on
+
+context:
+  max_tokens: 128000 # Total context window budget
+  zones:
+    immutable: { priority: 0, max_tokens: 4000 } # System prompt + tool schemas
+    task: { priority: 1, max_tokens: 2000 } # Current task / subtask description
+    working: { priority: 2, max_tokens: 8000 } # Recent tool call/result pairs
+    episodic: { priority: 3, max_tokens: 4000 } # Summarised step history
+    semantic: { priority: 4, max_tokens: 2000 } # Project conventions, AGENTS.md
+    scratch: { priority: 5, max_tokens: 1000 } # Agent scratchpad / interventions
+  compression_trigger_fraction: 0.15 # Start compressing when this % of budget remains
+  emergency_fraction: 0.05 # Aggressive emergency compression threshold
+
+budget:
+  step_allocations:
+    think: 200
+    tool_call: 300
+    tool_result: 2000
+    observation: 100
+  max_fraction_per_step: 0.10 # Never spend more than 10% of remaining budget on one step
+
+recovery:
+  loop_detection_window: 6 # Number of recent actions to examine
+  exact_repetition_threshold: 2 # Same action N times → loop
+  semantic_similarity_threshold: 0.85
+  error_repetition_threshold: 2
+  stall_steps: 4 # No-progress threshold
+  max_recovery_attempts: 3 # Give up after this many recovery interventions
+
+tools:
+  fs:
+    max_read_lines: 80 # Default line cap for read_file
+    edit_preferred: true # Prefer edit_file over write_file
+  search:
+    backend: "ripgrep" # "ripgrep" | "grep"
+    max_results: 30
+    context_lines: 0 # Lines of context around matches (0 = match only)
+  web:
+    backend: "brave" # "brave" | "tavily" | "exa"
+    max_results: 8
+    timeout_seconds: 15
+  git:
+    auto_commit: false # Whether agent may commit without asking
+
+rag:
+  enabled: true
+  index_dir: ".agent/index" # Relative to working_directory
+  chunk:
+    max_lines: 60
+    overlap_lines: 5
+    strategy: "ast" # "ast" (tree-sitter) | "regex" (fallback)
+  retrieval:
+    top_k: 10
+    bm25_weight: 0.7
+    dense_weight: 0.3 # Only used when embeddings are available
+  reindex_on_startup: false # Set true for first run or after big changes
+
+memory:
+  store_path: ".agent/memory.db" # SQLite file, relative to working_directory
+  max_entry_tokens: 500
+
+skills:
+  directories:
+    - "skills"
+    - ".agent/skills"
+
+logging:
+  level: "INFO" # DEBUG | INFO | WARNING | ERROR
+  file: ".agent/agent.log" # Log file, relative to working_directory

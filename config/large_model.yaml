@@ -1,0 +1,35 @@
+# ──────────────────────────────────────────────────────────────
+# Large-model overrides (Claude Sonnet/Opus, GPT-4o, etc.)
+# Merged on top of base.yaml.
+# ──────────────────────────────────────────────────────────────
+
+llm:
+  provider: "remote" # "remote" (OpenAI-compatible) | "local" (Ollama/MLX)
+  model: "claude-sonnet-4-20250514"
+  api_base: "https://api.openai.com/v1" # Change for Azure, Together, etc.
+  api_key_env: "OPENAI_API_KEY" # Env var name holding the key
+  temperature: 0.2
+  max_response_tokens: 4096
+  streaming: true
+
+agent:
+  planner_type: "tree_of_thought" # "tree_of_thought" | "flat"
+  planner_model: null # null = use same model; or specify a cheaper one
+  verifier_concurrent: true # Run verifier speculatively alongside next step
+  max_steps: 80 # Large models can handle longer tasks
+
+context:
+  max_tokens: 200000 # Claude-sonnet-4 class context
+
+tools:
+  router:
+    strategy: "hybrid" # "hybrid" (LLM + rules) | "llm_only" | "rules_only"
+    learned_preferences: true # Track tool-usage patterns for smarter routing
+  fs:
+    max_read_lines: 120 # Large models handle longer reads well
+  web:
+    backend: "tavily" # Better citation quality for research
+
+rag:
+  retrieval:
+    top_k: 15 # More candidates → better selection
