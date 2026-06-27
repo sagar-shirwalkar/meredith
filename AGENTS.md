@@ -48,7 +48,7 @@ local models (Ollama on Linux/macOS/Windows, MLX on Apple Silicon).
   - llm/ — LLM client abstractions (remote, local/MLX)
   - memory/ — Cross-session memory store
   - acp/ — ACP server for editor integration
-- skills/ — SKILL.md files for agent capabilities
+- .agents/skills/ — SKILL.md files for agent capabilities
 - .agent/ — Runtime data (index, memory DB, logs) — do not edit manually
 
 ## Testing Instructions

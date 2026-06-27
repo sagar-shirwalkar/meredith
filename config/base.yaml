@@ -73,6 +73,7 @@ memory:
 skills:
   directories:
     - "skills"
+    - ".agents/skills"
     - ".agent/skills"
 
 logging:

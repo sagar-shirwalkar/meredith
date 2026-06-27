@@ -130,7 +130,9 @@ class MemoryConfig:
 
 @dataclass(frozen=True, slots=True)
 class SkillsConfig:
-    directories: list[str] = field(default_factory=lambda: ["skills", ".agent/skills"])
+    directories: list[str] = field(
+        default_factory=lambda: ["skills", ".agents/skills", ".agent/skills"]
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,7 +146,7 @@ class LlmConfig:
     provider: str = "remote"
     model: str = "gpt-4o"
     api_base: str = "https://api.openai.com/v1"
-    api_key_env: str = "LLM_API_KEY"
+    key_var: str = "LLM_API_KEY"
     ollama_base: str = "http://localhost:11434"
     mlx_model_path: str | None = None
     mlx_fallback: bool = False
@@ -264,7 +266,7 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
             provider=llm_raw.get("provider", "remote"),
             model=llm_raw.get("model", "gpt-4o"),
             api_base=llm_raw.get("api_base", "https://api.openai.com/v1"),
-            api_key_env=llm_raw.get("api_key_env", "LLM_API_KEY"),
+            key_var=llm_raw.get("key_var", "LLM_API_KEY"),
             ollama_base=llm_raw.get("ollama_base", "http://localhost:11434"),
             mlx_model_path=llm_raw.get("mlx_model_path"),
             mlx_fallback=llm_raw.get("mlx_fallback", False),

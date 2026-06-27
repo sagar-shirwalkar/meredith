@@ -1,7 +1,7 @@
 # Meredith
 
 [![Python](https://img.shields.io/badge/Python-3.13-fbad2b?style=for-the-badge&label=Python&labelColor=gray&logo=python&logoColor=blue)](https://python.org)
-[![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/meredith/v0.2.1?style=for-the-badge)](https://github.com/sagar-shirwalkar/meredith/actions)
+[![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/meredith/v0.2.6?style=for-the-badge)](https://github.com/sagar-shirwalkar/meredith/actions)
 [![AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](LICENSE)
 
 <p align="center">
@@ -151,9 +151,14 @@ meredith/
 │   ├── test_indexer.py                   # Indexer file indexing and search
 │   ├── test_retriever.py                 # BM25Retriever scoring and retrieval
 │   └── test_main.py                      # CLI argument parsing, client factory
-├── skills/                           # Agent skill definitions
-│   ├── code_review/SKILL.md
-│   └── debugging/SKILL.md
+├── .agents/skills/                   # Agent skill definitions (Zed/opencode compatible)
+│   ├── agent-handoff/SKILL.md
+│   ├── agentic-improvements/SKILL.md
+│   ├── code-review/SKILL.md
+│   ├── debugging/SKILL.md
+│   ├── readme-writing/SKILL.md
+│   ├── skill-writing/SKILL.md
+│   └── web-browsing/SKILL.md
 ├── .github/workflows/ci.yml          # CI/CD pipeline
 ├── AGENTS.md                         # Project instructions for AI agents
 └── README.md
@@ -165,15 +170,15 @@ meredith/
 
 Skills are modular `SKILL.md` files that teach the agent specialized capabilities. They are loaded automatically from the following directories (configurable in `config/base.yaml` under `skills.directories`):
 
-- `skills/` — project-bundled skills
+- `.agents/skills/` — project-bundled skills (Zed/opencode compatible)
 - `.agent/skills/` — per-user overrides (gitignored)
 
 ### Installing a skill
 
-1. Create a new directory under `skills/` with a descriptive name:
+1. Create a new directory under `.agents/skills/` with a descriptive name:
 
 ```bash
-mkdir -p skills/react-patterns                                           # New skill directory
+mkdir -p .agents/skills/react-patterns                                     # New skill directory
 ```
 
 2. Write a `SKILL.md` file with instructions, conventions, and examples the agent should follow.

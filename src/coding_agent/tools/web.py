@@ -99,9 +99,30 @@ def _format_hits(hits: list[_SearchHit], max_results: int) -> str:
 # ──────────────────────────────────────────────────────────────
 
 
-_TAG_RE = re.compile(r"<[^>]+>")
-_SCRIPT_RE = re.compile(r"<script[^>]*>.*?</script>", re.DOTALL | re.IGNORECASE)
-_STYLE_RE = re.compile(r"<style[^>]*>.*?</style>", re.DOTALL | re.IGNORECASE)
+# Script/style blocks: tolerate whitespace before > in closing tags
+_SCRIPT_RE = re.compile(r"<script[^>]*>.*?</script\s*>", re.DOTALL | re.IGNORECASE)
+_STYLE_RE = re.compile(r"<style[^>]*>.*?</style\s*>", re.DOTALL | re.IGNORECASE)
+
+# Blocks unlikely to carry readable text
+_SVG_RE = re.compile(r"<svg[^>]*>.*?</svg>", re.DOTALL | re.IGNORECASE)
+_MATH_RE = re.compile(r"<math[^>]*>.*?</math>", re.DOTALL | re.IGNORECASE)
+_IFRAME_RE = re.compile(r"<iframe[^>]*>.*?</iframe>", re.DOTALL | re.IGNORECASE)
+_EMBED_RE = re.compile(r"<(?:embed|object)[^>]*>.*?</(?:embed|object)>", re.DOTALL | re.IGNORECASE)
+
+# Comments, CDATA, processing instructions
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_CDATA_RE = re.compile(r"<!\[CDATA\[.*?\]\]>", re.DOTALL)
+_PI_RE = re.compile(r"<\?.*?\?>", re.DOTALL)
+
+# Event handler attributes (onclick, onload, etc.)
+_EVENT_RE = re.compile(r"\s+on\w+\s*=\s*(?:\"[^\"]*\"|'[^']*')", re.IGNORECASE)
+
+# javascript:/vbscript: in href/src
+_JS_PROTO_RE = re.compile(
+    r"""\s+(?:href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')""",
+    re.IGNORECASE,
+)
+
 _MULTI_SPACE_RE = re.compile(r"\s+")
 _MULTI_NEWLINE_RE = re.compile(r"\n{3,}")
 
@@ -113,17 +134,30 @@ def _extract_text_from_html(html: str) -> str:
     This is a lightweight alternative to BeautifulSoup — good enough
     for documentation pages and articles, not for complex SPAs.
     """
-    # Remove script and style blocks first
+    # Remove block content that carries no readable text
     text = _SCRIPT_RE.sub("", html)
     text = _STYLE_RE.sub("", text)
+    text = _SVG_RE.sub("", text)
+    text = _MATH_RE.sub("", text)
+    text = _IFRAME_RE.sub("", text)
+    text = _EMBED_RE.sub("", text)
+    # Remove comments, CDATA, processing instructions
+    text = _COMMENT_RE.sub("", text)
+    text = _CDATA_RE.sub("", text)
+    text = _PI_RE.sub("", text)
+    # Remove event handlers and javascript: URLs
+    text = _EVENT_RE.sub("", text)
+    text = _JS_PROTO_RE.sub("", text)
     # Replace <br> and block tags with newlines
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</(p|div|h[1-6]|li|tr|section|article)>", "\n", text, flags=re.IGNORECASE)
+    tag_pattern = r"</(p|div|h[1-6]|li|tr|section|article|blockquote|pre|td|th)>"
+    text = re.sub(tag_pattern, "\n", text, flags=re.IGNORECASE)
     # Strip remaining tags
-    text = _TAG_RE.sub("", text)
+    text = re.sub(r"<[^>]+>", "", text)
     # Decode common HTML entities
     text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
+    text = text.replace("&ndash;", "–").replace("&mdash;", "—")
     # Normalise whitespace
     text = _MULTI_SPACE_RE.sub(" ", text)
     text = _MULTI_NEWLINE_RE.sub("\n\n", text)

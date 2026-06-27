@@ -45,23 +45,23 @@ class RemoteLLMClient(LLMClient):
     Async client for any OpenAI-compatible chat/completions endpoint.
 
     The API key is read from the environment variable named in
-    *api_key_env* (default ``LLM_API_KEY``).
+    *key_var* (default ``LLM_API_KEY``).
     """
 
     def __init__(
         self,
         model: str = "gpt-4o",
         api_base: str = "https://api.openai.com/v1",
-        api_key_env: str = "LLM_API_KEY",
+        key_var: str = "LLM_API_KEY",
         temperature: float = 0.2,
         max_tokens: int = 4096,
         timeout_seconds: float = 120.0,
     ) -> None:
         super().__init__(model, temperature, max_tokens)
         self.api_base = api_base.rstrip("/")
-        self.api_key = os.environ.get(api_key_env, "")
+        self.api_key = os.environ.get(key_var, "")
         if not self.api_key:
-            logger.warning("API key env var %s is not set — requests will fail", api_key_env)
+            logger.warning("API key env var %s is not set — requests will fail", key_var)
         self._http = httpx.AsyncClient(
             base_url=self.api_base,
             headers={

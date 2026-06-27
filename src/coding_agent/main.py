@@ -68,7 +68,7 @@ def create_llm_client(config: AppConfig) -> LLMClient:
         return RemoteLLMClient(
             model=llm_cfg.model,
             api_base=llm_cfg.api_base,
-            api_key_env=llm_cfg.api_key_env,
+            key_var=llm_cfg.key_var,
             temperature=llm_cfg.temperature,
             max_tokens=llm_cfg.max_response_tokens,
         )

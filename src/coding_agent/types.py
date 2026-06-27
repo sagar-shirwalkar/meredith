@@ -398,15 +398,15 @@ class LLMProtocol(Protocol):
         tools: list[ToolSchema] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-    ) -> Any: ...
+    ) -> Any: pass
 
-    def count_tokens(self, text: str) -> int: ...
+    def count_tokens(self, text: str) -> int: pass
 
 
 class ToolExecutorProtocol(Protocol):
     """Interface for executing a tool call."""
 
-    async def execute(self, call: ToolCall) -> ToolResult: ...
+    async def execute(self, call: ToolCall) -> ToolResult: pass
 
 
 # ──────────────────────────────────────────────────────────────
