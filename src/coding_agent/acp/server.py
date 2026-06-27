@@ -91,7 +91,7 @@ class CodingAgentServer(Agent):
             agent_info=Implementation(
                 name="mentis-agent",
                 title="mentis-agent",
-                version="0.2.0",
+                version="0.2.3",
             ),
         )
 

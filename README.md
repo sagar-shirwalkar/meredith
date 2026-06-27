@@ -203,7 +203,7 @@ args:
   - coding_agent.acp.server
   - --profile
   - large_model
-version: 0.2.0
+version: 0.2.3
 ```
 
 3. **Add an icon** — use the icon at [`assets/mentis-agent.svg`](assets/mentis-agent.svg).
@@ -236,8 +236,8 @@ The project uses GitHub Actions for continuous integration and automated publish
 
 ```bash
 # 1. Tag the release
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.3
+git push origin v0.2.3
 
 # 2. Create a GitHub Release from the tag
 #    The CI pipeline will automatically build and publish to PyPI.

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mentis-agent"
-version = "0.2.0"
+version = "0.2.3"
 description = "A modern AI coding agent with RAG, ACP, and smart context management"
 readme = "README.md"
 requires-python = ">=3.13"

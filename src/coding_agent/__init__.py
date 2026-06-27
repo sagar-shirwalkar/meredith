@@ -6,7 +6,7 @@ Supports any OpenAI-compatible remote API (Claude, GPT, Opencode, etc.)
 and local models via Ollama (Linux, macOS, Windows) or MLX (Apple Silicon).
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.3"
 
 from coding_agent.types import (
     AgentState,
