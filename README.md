@@ -2,12 +2,12 @@
   <picture>
     <img src="assets/mentis-agent.svg" width="36" height="36" alt="" style="vertical-align: middle; margin-right: 8px;">
   </picture>
-  Mentis
+  Mentis-Agent
 </h1>
 
-[![Python](https://img.shields.io/badge/Python-3.13-yellow?style=for-the-badge&label=Python&labelColor=gray&logo=python&logoColor=blue)](https://python.org)
-[![CI](https://github.com/mentis-ai/mentis-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/mentis-ai/mentis-agent/actions/workflows/ci.yml)
-[![AGPL-3.0](https://img.shields.io/badge/License-AGPLv3-blue?style=for-the-badge)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.13-fbad2b?style=for-the-badge&label=Python&labelColor=gray&logo=python&logoColor=blue)](https://python.org)
+[![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/mentis-agent/v0.2.1?style=for-the-badge)](https://github.com/sagar-shirwalkar/mentis-agent/actions)
+[![AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](LICENSE)
 
 Mentis is an AI coding agent purpose-built for software engineering workflows. It operates a **ReAct loop** (Reason → Act → Observe) with strategic planning, RAG-augmented code understanding, and ACP (Agent Client Protocol) integration for native editor support.
 
