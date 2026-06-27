@@ -15,11 +15,8 @@ from __future__ import annotations
 import logging
 import math
 import re
-from pathlib import Path
-from typing import Any
 
-from coding_agent.config import AppConfig, RetrievalConfig
-from coding_agent.llm.base import count_tokens
+from coding_agent.config import AppConfig
 from coding_agent.rag.indexer import Indexer
 from coding_agent.types import SearchResult
 

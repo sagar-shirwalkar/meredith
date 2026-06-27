@@ -80,9 +80,9 @@ class CodingAgentServer(Agent):
             protocol_version=PROTOCOL_VERSION,
             agent_capabilities=AgentCapabilities(),
             agent_info=Implementation(
-                name="coding-agent",
-                title="Coding Agent",
-                version="0.1.0",
+                name="mentis-agent",
+                title="mentis-agent",
+                version="0.2.0",
             ),
         )
 

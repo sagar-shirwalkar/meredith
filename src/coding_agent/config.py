@@ -10,12 +10,11 @@ type-safe access throughout the codebase.
 
 from __future__ import annotations
 
-import os
-import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
 
 # ──────────────────────────────────────────────────────────────
 # Configuration dataclasses — mirror the YAML structure
@@ -145,7 +144,7 @@ class LlmConfig:
     provider: str = "remote"
     model: str = "gpt-4o"
     api_base: str = "https://api.openai.com/v1"
-    api_key_env: str = "OPENAI_API_KEY"
+    api_key_env: str = "LLM_API_KEY"
     ollama_base: str = "http://localhost:11434"
     mlx_model_path: str | None = None
     mlx_fallback: bool = False
@@ -203,7 +202,7 @@ def _load_yaml(path: Path) -> dict:
     """Load a YAML file, returning an empty dict if it doesn't exist."""
     if not path.exists():
         return {}
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
     return data if isinstance(data, dict) else {}
 
@@ -265,7 +264,7 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
             provider=llm_raw.get("provider", "remote"),
             model=llm_raw.get("model", "gpt-4o"),
             api_base=llm_raw.get("api_base", "https://api.openai.com/v1"),
-            api_key_env=llm_raw.get("api_key_env", "OPENAI_API_KEY"),
+            api_key_env=llm_raw.get("api_key_env", "LLM_API_KEY"),
             ollama_base=llm_raw.get("ollama_base", "http://localhost:11434"),
             mlx_model_path=llm_raw.get("mlx_model_path"),
             mlx_fallback=llm_raw.get("mlx_fallback", False),

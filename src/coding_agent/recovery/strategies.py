@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import Any
 
 from coding_agent.config import AppConfig
 from coding_agent.llm.base import LLMClient
@@ -141,7 +140,8 @@ class LoopRecovery:
         previous_actions = self._summarise_recent_actions(state, max_steps=4)
 
         message = (
-            f"LOOP DETECTED: You have encountered the same error {len(detection.repeated_actions)} times.\n\n"
+            f"LOOP DETECTED: You have encountered the same error "
+            f"{len(detection.repeated_actions)} times.\n\n"
             f"Error that is recurring:\n{error_desc[:300]}\n\n"
             f"Actions you have already tried:\n{previous_actions}\n\n"
             "Your current approach is not working. You must:\n"
@@ -231,7 +231,8 @@ class LoopRecovery:
 
         Uses a short, focused prompt to minimise token cost.
         """
-        from coding_agent.types import Message as Msg, Role
+        from coding_agent.types import Message as Msg
+        from coding_agent.types import Role
 
         prompt = (
             "The agent is stuck. Suggest ONE different approach or ask "
@@ -266,7 +267,7 @@ class LoopRecovery:
                 result = "ok" if step.tool_result and step.tool_result.success else "error"
                 lines.append(f"  {step.tool_call.name}({args_summary}) -> {result}")
             else:
-                lines.append(f"  (reasoning only)")
+                lines.append("  (reasoning only)")
 
         return "\n".join(lines)
 
@@ -276,7 +277,8 @@ class LoopRecovery:
         parts: list[str] = [
             f"Task: {state.task[:100]}",
             f"Steps taken: {state.step_count}",
-            f"Files modified: {', '.join(state.files_modified) if state.files_modified else 'none'}",
+            f"Files modified: "
+            f"{', '.join(state.files_modified) if state.files_modified else 'none'}",
             f"Files read: {', '.join(list(state.files_read)[-5:]) if state.files_read else 'none'}",
         ]
         if state.last_error:

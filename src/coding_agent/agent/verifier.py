@@ -18,10 +18,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 from coding_agent.config import AppConfig
-from coding_agent.types import AgentState, Step, TaskStatus
+from coding_agent.types import AgentState, Step
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +208,7 @@ class Verifier:
                 lines = stdout.decode().strip().split("\n")
                 # Only return errors, not warnings
                 return [line for line in lines if file_path in line][:5]
-        except (FileNotFoundError, asyncio.TimeoutError):
+        except (TimeoutError, FileNotFoundError):
             pass
 
         # Fallback: try ruff
@@ -225,7 +224,7 @@ class Verifier:
             if stdout:
                 lines = stdout.decode().strip().split("\n")
                 return [line for line in lines if "error" in line.lower()][:5]
-        except (FileNotFoundError, asyncio.TimeoutError):
+        except (TimeoutError, FileNotFoundError):
             pass
 
         return []
@@ -247,7 +246,7 @@ class Verifier:
             if stdout:
                 lines = stdout.decode().strip().split("\n")
                 return [line for line in lines if "error TS" in line][:5]
-        except (FileNotFoundError, asyncio.TimeoutError):
+        except (TimeoutError, FileNotFoundError):
             pass
         return []
 
@@ -269,6 +268,6 @@ class Verifier:
                     for line in lines
                     if "error" in line.lower() and file_path in line
                 ][:5]
-        except (FileNotFoundError, asyncio.TimeoutError):
+        except (TimeoutError, FileNotFoundError):
             pass
         return []

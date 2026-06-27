@@ -16,7 +16,6 @@ Rule-based routing enforces invariants that the LLM might violate:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from coding_agent.config import AppConfig
 from coding_agent.tools.base import ToolRegistry
@@ -104,7 +103,11 @@ class ToolRouter:
                 tools.extend(_WEB_TOOLS)
 
         # Git tools (add after a few steps or when explicitly needed)
-        if state and (state.step_count > 3 or "git" in state.task.lower() or "commit" in state.task.lower()):
+        if state and (
+            state.step_count > 3
+            or "git" in state.task.lower()
+            or "commit" in state.task.lower()
+        ):
             tools.extend(_GIT_TOOLS)
 
         # Filter to only tools that are actually registered

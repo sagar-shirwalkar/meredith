@@ -4,10 +4,10 @@
 # ──────────────────────────────────────────────────────────────
 
 llm:
-  provider: "remote" # "remote" (OpenAI-compatible) | "local" (Ollama/MLX)
+  provider: "remote" # "remote" (OpenAI-compatible) | "local" (Ollama everywhere, MLX on Apple Silicon)
   model: "claude-sonnet-4-20250514"
   api_base: "https://api.openai.com/v1" # Change for Azure, Together, etc.
-  api_key_env: "OPENAI_API_KEY" # Env var name holding the key
+  api_key_env: "LLM_API_KEY" # Env var name holding the key
   temperature: 0.2
   max_response_tokens: 4096
   streaming: true

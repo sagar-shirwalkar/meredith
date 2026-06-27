@@ -197,5 +197,5 @@ class GitTools(ToolExecutor):
 
         except FileNotFoundError:
             return "Error: git is not installed or not in PATH"
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return "Error: git command timed out"

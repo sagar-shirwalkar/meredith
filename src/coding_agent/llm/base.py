@@ -11,16 +11,15 @@ from __future__ import annotations
 
 import abc
 import json
-import time
 import uuid
-from dataclasses import dataclass, field
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, AsyncIterator
+from typing import Any
 
 import tiktoken
 
-from coding_agent.types import Message, Role, ToolCall, ToolSchema
-
+from coding_agent.types import Message, ToolCall, ToolSchema
 
 # ──────────────────────────────────────────────────────────────
 # Streaming types

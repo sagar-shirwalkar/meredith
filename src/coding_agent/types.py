@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-
 # ──────────────────────────────────────────────────────────────
 # Enums
 # ──────────────────────────────────────────────────────────────
@@ -135,7 +134,9 @@ class ToolSchema:
         properties: dict[str, Any] = {}
         required: list[str] = []
         for p in self.parameters:
-            prop: dict[str, Any] = {"type": _python_type_to_json(p.type), "description": p.description}
+            prop: dict[str, Any] = {
+                "type": _python_type_to_json(p.type), "description": p.description
+            }
             if p.enum:
                 prop["enum"] = p.enum
             properties[p.name] = prop
@@ -216,7 +217,10 @@ class Plan:
             if st.status == TaskStatus.PENDING:
                 # Check dependencies
                 deps = self.dependencies.get(st.id, [])
-                if all(self.subtasks[d - 1].status == TaskStatus.COMPLETED for d in deps if d - 1 < len(self.subtasks)):
+                if all(
+                    self.subtasks[d - 1].status == TaskStatus.COMPLETED
+                    for d in deps if d - 1 < len(self.subtasks)
+                ):
                     st.status = TaskStatus.IN_PROGRESS
                     self.current_subtask_idx = i
                     return st

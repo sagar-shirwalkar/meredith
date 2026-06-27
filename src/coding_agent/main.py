@@ -1,10 +1,10 @@
 """
-CLI entry point for the coding agent.
+CLI entry point for the mentis-agent.
 
 Usage:
-    coding-agent "Add JWT authentication to the login endpoint"
-    coding-agent --profile local_model "Fix the failing test in test_auth.py"
-    coding-agent --profile large_model --working-dir ./myproject "Refactor the user service"
+    mentis-agent "Add JWT authentication to the login endpoint"
+    mentis-agent --profile local_model "Fix the failing test in test_auth.py"
+    mentis-agent --profile large_model --working-dir ./myproject "Refactor the user service"
 
 Wires together config loading, LLM client creation, and the agent loop.
 The agent loop itself lives in agent/core.py; this module is the orchestrator.
@@ -22,8 +22,6 @@ from coding_agent.config import AppConfig, load_config
 from coding_agent.llm.base import LLMClient
 from coding_agent.llm.local import LocalLLMClient
 from coding_agent.llm.remote import RemoteLLMClient
-from coding_agent.types import Message, Role
-
 
 logger = logging.getLogger("coding_agent")
 
@@ -149,8 +147,8 @@ async def run_agent(config: AppConfig, task: str) -> None:
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(
-        prog="coding-agent",
-        description="AI coding agent with RAG, MCP, and smart context management",
+        prog="mentis-agent",
+        description="AI coding agent with RAG, ACP, and smart context management",
     )
     parser.add_argument(
         "task",

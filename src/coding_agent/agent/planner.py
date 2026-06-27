@@ -149,11 +149,7 @@ class Planner(ABC):
         json_match = re.search(
             r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL
         )
-        if json_match:
-            json_str = json_match.group(1)
-        else:
-            # Maybe the whole response is JSON
-            json_str = text.strip()
+        json_str = json_match.group(1) if json_match else text.strip()
 
         # If the LLM used a "best_plan" key (tree-of-thought), unwrap it
         try:

@@ -301,7 +301,10 @@ class OutputCompressor:
 
         lines = output.split("\n")
         # Keep only non-indented lines (top-level entries)
-        top_level = [l for l in lines if l and not l.startswith(" ") and not l.startswith("\t")]
+        top_level = [
+            line for line in lines
+            if line and not line.startswith(" ") and not line.startswith("\t")
+        ]
         return "\n".join(top_level[:50])
 
     # ── Utility ───────────────────────────────────────────────

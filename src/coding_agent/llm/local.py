@@ -19,8 +19,8 @@ import json
 import logging
 import shutil
 import subprocess
-import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -30,7 +30,6 @@ from coding_agent.llm.base import (
     StreamEvent,
     UsageStats,
     count_tokens,
-    parse_tool_calls_from_response,
 )
 from coding_agent.types import Message, Role, ToolCall, ToolSchema
 
@@ -275,7 +274,7 @@ class LocalLLMClient(LLMClient):
         tool_calls = self._parse_ollama_tool_calls(tool_calls_raw) if tool_calls_raw else None
 
         # Ollama doesn't always report token counts — estimate
-        usage = UsageStats(
+        _usage = UsageStats(
             prompt_tokens=count_tokens(str(payload)),
             completion_tokens=count_tokens(content),
         )
@@ -326,7 +325,11 @@ class LocalLLMClient(LLMClient):
                         )
                     if fn.get("arguments"):
                         # Ollama sends full dict, not string deltas
-                        args_str = json.dumps(fn["arguments"]) if isinstance(fn["arguments"], dict) else str(fn["arguments"])
+                        args_str = (
+                            json.dumps(fn["arguments"])
+                            if isinstance(fn["arguments"], dict)
+                            else str(fn["arguments"])
+                        )
                         tool_call_accum[i]["arguments"] = args_str
                         yield StreamChunk(
                             event=StreamEvent.TOOL_CALL_DELTA,

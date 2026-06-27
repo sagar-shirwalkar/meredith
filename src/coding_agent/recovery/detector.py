@@ -153,10 +153,7 @@ class LoopDetector:
 
         # Check: same tool 4+ times
         for tool_name, steps in tool_counts.items():
-            if len(steps) >= 4:
-                # Check if the arguments are similar (not exact duplicates,
-                # which would have been caught by exact_repetition)
-                if self._args_are_similar(steps):
+            if len(steps) >= 4 and self._args_are_similar(steps):
                     return LoopDetection(
                         loop_type=LoopType.SEMANTIC_LOOP,
                         severity=Severity.MEDIUM,
@@ -214,7 +211,8 @@ class LoopDetector:
                 if step.tool_call.name == "run_command" and step.tool_result.success:
                     # But only if the output suggests something changed
                     output = step.tool_result.output.lower()
-                    if any(word in output for word in ("passed", "succeeded", "created", "updated")):
+                    progress_words = ("passed", "succeeded", "created", "updated")
+                    if any(word in output for word in progress_words):
                         has_progress = True
                         break
 
@@ -303,4 +301,3 @@ class LoopDetector:
 
         # If more than half of pairs are similar
         return total_pairs > 0 and similar_count / total_pairs > 0.5
-

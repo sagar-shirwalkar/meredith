@@ -1,12 +1,12 @@
 """
-coding-agent: A cutting-edge AI coding agent with RAG, MCP integration,
+mentis-agent: A modern AI coding agent with RAG, ACP integration,
 and smart context management.
 
-Supports both large remote models (Claude, GPT-4) and local models
-(Ollama/MLX on Apple Silicon and Linux+CUDA).
+Supports any OpenAI-compatible remote API (Claude, GPT, Opencode, etc.)
+and local models via Ollama (Linux, macOS, Windows) or MLX (Apple Silicon).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from coding_agent.types import (
     AgentState,

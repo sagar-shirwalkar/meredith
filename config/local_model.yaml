@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────
-# Local-model overrides (Ollama 7-13B, MLX)
+# Local-model overrides (Ollama on Linux/macOS/Windows, MLX on Apple Silicon)
 # Merged on top of base.yaml.
 # ──────────────────────────────────────────────────────────────
 

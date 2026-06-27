@@ -12,12 +12,10 @@ HTML stripping (no heavy dependencies).
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
 from typing import Any
-from urllib.parse import quote_plus
 
 import httpx
 
@@ -353,7 +351,7 @@ class WebTools(ToolExecutor):
         try:
             resp = await self._http.get(
                 fetch_url,
-                headers={"User-Agent": "coding-agent/0.1"},
+                headers={"User-Agent": "mentis-agent/0.3"},
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -419,4 +417,3 @@ class WebTools(ToolExecutor):
 
     async def close(self) -> None:
         await self._http.aclose()
-

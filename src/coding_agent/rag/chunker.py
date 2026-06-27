@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from coding_agent.config import AppConfig, ChunkConfig
+from coding_agent.config import ChunkConfig
 from coding_agent.types import CodeChunk, SymbolKind
 
 logger = logging.getLogger(__name__)
@@ -232,10 +232,7 @@ class RegexChunker(Chunker):
         max_lines = self.config.max_lines
         for i, (start_line, name, kind) in enumerate(symbols):
             # End line is the start of the next symbol or end of file
-            if i + 1 < len(symbols):
-                end_line = symbols[i + 1][0] - 1
-            else:
-                end_line = total_lines
+            end_line = symbols[i + 1][0] - 1 if i + 1 < len(symbols) else total_lines
 
             # If the symbol is very long, split it
             symbol_length = end_line - start_line + 1
@@ -244,7 +241,11 @@ class RegexChunker(Chunker):
                 offset = start_line
                 while offset <= end_line:
                     chunk_end = min(offset + max_lines - 1, end_line)
-                    suffix = f"_part{(offset - start_line) // max_lines + 1}" if symbol_length > max_lines * 1.5 else ""
+                    suffix = (
+                        f"_part{(offset - start_line) // max_lines + 1}"
+                        if symbol_length > max_lines * 1.5
+                        else ""
+                    )
                     chunks.append(
                         self._make_chunk(
                             path, content, offset, chunk_end,
@@ -328,7 +329,9 @@ class AstChunker(Chunker):
         try:
             return self._chunk_with_treesitter(path, content, lang)
         except Exception as exc:
-            logger.warning("tree-sitter chunking failed for %s: %s — falling back to regex", path, exc)
+            logger.warning(
+                "tree-sitter chunking failed for %s: %s — falling back to regex", path, exc
+            )
             return self._regex_chunker.chunk_file(path, content)
 
     def _chunk_with_treesitter(
@@ -351,11 +354,11 @@ class AstChunker(Chunker):
             "function_definition", "class_definition", "method_definition",
             "decorated_definition",  # Python decorators
             "function_item", "impl_item", "struct_item", "enum_item", "trait_item",  # Rust
-            "function_declaration", "class_declaration", "method_definition", "interface_declaration",  # TS
-            "function_declaration", "method_declaration", "type_declaration",  # Go
+            "function_declaration", "class_declaration", "interface_declaration",  # TS
+            "method_declaration", "type_declaration",  # Go
         }
 
-        lines = content.split("\n")
+        _lines = content.split("\n")
 
         def visit(node: Any) -> None:
             """Recursively visit AST nodes to find definitions."""

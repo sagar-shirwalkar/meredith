@@ -27,15 +27,15 @@ import time
 from typing import Any
 
 from coding_agent.agent.planner import FlatPlanner, Planner, TreeOfThoughtPlanner
-from coding_agent.agent.verifier import Verifier, VerificationResult
+from coding_agent.agent.verifier import Verifier
 from coding_agent.config import AppConfig
 from coding_agent.context.budget import TokenBudget
 from coding_agent.context.manager import ContextManager
-from coding_agent.llm.base import LLMClient, StreamChunk, StreamEvent
+from coding_agent.llm.base import LLMClient, StreamEvent
+from coding_agent.memory.store import MemoryStore
+from coding_agent.rag.retriever import Retriever
 from coding_agent.recovery.detector import LoopDetector
 from coding_agent.recovery.strategies import LoopRecovery
-from coding_agent.rag.retriever import Retriever
-from coding_agent.memory.store import MemoryStore
 from coding_agent.tools.base import ToolRegistry
 from coding_agent.tools.router import ToolRouter
 from coding_agent.types import (
@@ -250,9 +250,12 @@ class AgentCore:
                 ))
 
             # 2. Check budget
-            if self._budget and self._budget.remaining_fraction() < self.config.context.emergency_fraction:
-                logger.warning("Context budget critically low (%.1f%% remaining), forcing compression",
-                               self._budget.remaining_fraction() * 100)
+            emergency = self.config.context.emergency_fraction
+            if self._budget and self._budget.remaining_fraction() < emergency:
+                logger.warning(
+                    "Context budget critically low (%.1f%% remaining), forcing compression",
+                    self._budget.remaining_fraction() * 100,
+                )
                 await self._emergency_compression()
 
             # 3. Execute one step
@@ -272,7 +275,9 @@ class AgentCore:
             if self._recovery_detector:
                 detection = self._recovery_detector.check(step)
                 if detection:
-                    logger.warning("Loop detected: %s (severity=%s)", detection.loop_type, detection.severity)
+                    logger.warning(
+                        "Loop detected: %s (severity=%s)", detection.loop_type, detection.severity
+                    )
                     action = await self._recovery_strategies.recover(detection, self.state)
                     self._apply_recovery(action)
                     self._recovery_attempts += 1
@@ -289,9 +294,13 @@ class AgentCore:
                 verification = await self._verifier.verify(step, self.state)
                 if not verification.passed:
                     logger.info("Verification failed: %s", verification.message)
+                    content = (
+                        f"⚠️ Verification issue: {verification.message}"
+                        "\nPlease fix this before proceeding."
+                    )
                     self._messages.append(Message(
                         role=Role.SYSTEM,
-                        content=f"⚠️ Verification issue: {verification.message}\nPlease fix this before proceeding.",
+                        content=content,
                     ))
 
             # 7. Checkpoint
@@ -491,9 +500,16 @@ class AgentCore:
             # Keep system messages and the most recent turns
             system_msgs = [m for m in self._messages if m.role == Role.SYSTEM]
             recent = self._messages[-10:]
-            self._messages = system_msgs + [
-                Message(role=Role.SYSTEM, content="[Earlier conversation steps omitted to save space]")
-            ] + recent
+            self._messages = (
+                system_msgs
+                + [
+                    Message(
+                        role=Role.SYSTEM,
+                        content="[Earlier conversation steps omitted to save space]",
+                    )
+                ]
+                + recent
+            )
 
     # ── Recovery ──────────────────────────────────────────────
 
@@ -511,7 +527,10 @@ class AgentCore:
         if action.force_user_intervention:
             self._messages.append(Message(
                 role=Role.SYSTEM,
-                content="The agent is stuck. Consider providing additional guidance or simplifying the task.",
+                content=(
+                    "The agent is stuck. Consider providing additional guidance "
+                    "or simplifying the task."
+                ),
             ))
 
     # ── Checkpoint ────────────────────────────────────────────

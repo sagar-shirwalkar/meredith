@@ -7,14 +7,12 @@ For safety, path traversal (../) is rejected.
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
 import re
 from pathlib import Path
 from typing import Any
 
-from coding_agent.config import AppConfig, resolve_path
+from coding_agent.config import AppConfig
 from coding_agent.llm.base import count_tokens
 from coding_agent.tools.base import (
     SCHEMA_EDIT_FILE,
@@ -329,7 +327,10 @@ class FsTools(ToolExecutor):
 
         output_lines: list[str] = []
         # Respect common ignore patterns
-        ignore_dirs = {".git", "__pycache__", "node_modules", ".mypy_cache", ".pytest_cache", ".tox", ".venv", "venv", ".agent"}
+        ignore_dirs = {
+            ".git", "__pycache__", "node_modules", ".mypy_cache",
+            ".pytest_cache", ".tox", ".venv", "venv", ".agent",
+        }
         ignore_exts = {".pyc", ".pyo", ".so", ".dylib", ".dll", ".exe"}
 
         for entry in entries:
@@ -344,7 +345,9 @@ class FsTools(ToolExecutor):
                 # If recursive, show contents of subdirectories (1 level)
                 if recursive:
                     try:
-                        sub_entries = sorted(entry.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+                        sub_entries = sorted(
+                            entry.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())
+                        )
                         for sub in sub_entries[:20]:  # Limit sub-entries
                             prefix = "    " if sub.is_file() else "    "
                             output_lines.append(f"{prefix}{sub.name}")

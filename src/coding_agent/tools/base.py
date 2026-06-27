@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
 
 from coding_agent.config import AppConfig
 from coding_agent.types import ToolCall, ToolParameter, ToolResult, ToolSchema
@@ -81,9 +80,9 @@ class ToolRegistry:
             return
 
         from coding_agent.tools.fs import FsTools
+        from coding_agent.tools.git import GitTools
         from coding_agent.tools.search import SearchTools
         from coding_agent.tools.web import WebTools
-        from coding_agent.tools.git import GitTools
 
         executor_instances: list[ToolExecutor] = [
             FsTools(self.config),
@@ -162,11 +161,20 @@ class ToolRegistry:
 
 SCHEMA_READ_FILE = ToolSchema(
     name="read_file",
-    description="Read contents of a file, optionally a specific line range. Prefer over write_file for understanding code.",
+    description=(
+        "Read contents of a file, optionally a specific line range. "
+        "Prefer over write_file for understanding code."
+    ),
     parameters=[
         ToolParameter(name="path", type="str", description="File path relative to project root"),
-        ToolParameter(name="start_line", type="int", description="First line to read (1-based)", required=False),
-        ToolParameter(name="end_line", type="int", description="Last line to read (inclusive)", required=False),
+        ToolParameter(
+            name="start_line", type="int",
+            description="First line to read (1-based)", required=False,
+        ),
+        ToolParameter(
+            name="end_line", type="int",
+            description="Last line to read (inclusive)", required=False,
+        ),
     ],
     use_when="Need to see the current content of a file or a region of a file",
     token_cost_hint="medium",
@@ -174,7 +182,10 @@ SCHEMA_READ_FILE = ToolSchema(
 
 SCHEMA_WRITE_FILE = ToolSchema(
     name="write_file",
-    description="Create or replace a file with the given content. Use edit_file instead for modifying existing files.",
+    description=(
+        "Create or replace a file with the given content. "
+        "Use edit_file instead for modifying existing files."
+    ),
     parameters=[
         ToolParameter(name="path", type="str", description="File path relative to project root"),
         ToolParameter(name="content", type="str", description="Full file content to write"),
@@ -185,12 +196,22 @@ SCHEMA_WRITE_FILE = ToolSchema(
 
 SCHEMA_EDIT_FILE = ToolSchema(
     name="edit_file",
-    description="Edit a file by replacing a search string with a replace string. Preferred over write_file for modifications.",
+    description=(
+        "Edit a file by replacing a search string with a replace string. "
+        "Preferred over write_file for modifications."
+    ),
     parameters=[
         ToolParameter(name="path", type="str", description="File path relative to project root"),
-        ToolParameter(name="search", type="str", description="Exact text to find (must be unique in the file)"),
+        ToolParameter(
+            name="search", type="str",
+            description="Exact text to find (must be unique in the file)",
+        ),
         ToolParameter(name="replace", type="str", description="Replacement text"),
-        ToolParameter(name="regex", type="bool", description="Whether search is a regex pattern", required=False, default="false"),
+        ToolParameter(
+            name="regex", type="bool",
+            description="Whether search is a regex pattern",
+            required=False, default="false",
+        ),
     ],
     use_when="Modifying a specific part of an existing file",
     token_cost_hint="low",
@@ -198,10 +219,20 @@ SCHEMA_EDIT_FILE = ToolSchema(
 
 SCHEMA_LIST_DIRECTORY = ToolSchema(
     name="list_directory",
-    description="List files and directories at the given path. Use to understand project structure.",
+    description=(
+        "List files and directories at the given path. "
+        "Use to understand project structure."
+    ),
     parameters=[
-        ToolParameter(name="path", type="str", description="Directory path relative to project root", required=False, default="."),
-        ToolParameter(name="recursive", type="bool", description="List recursively", required=False, default="false"),
+        ToolParameter(
+            name="path", type="str",
+            description="Directory path relative to project root",
+            required=False, default=".",
+        ),
+        ToolParameter(
+            name="recursive", type="bool",
+            description="List recursively", required=False, default="false",
+        ),
     ],
     use_when="Exploring project structure or finding where files are located",
     token_cost_hint="low",
@@ -209,13 +240,29 @@ SCHEMA_LIST_DIRECTORY = ToolSchema(
 
 SCHEMA_SEARCH_CODE = ToolSchema(
     name="search_code",
-    description="Search for a text pattern across the codebase using ripgrep. Supports regex.",
+    description=(
+        "Search for a text pattern across the codebase using ripgrep. "
+        "Supports regex."
+    ),
     parameters=[
         ToolParameter(name="pattern", type="str", description="Search pattern (literal or regex)"),
-        ToolParameter(name="path", type="str", description="Directory or file to search in", required=False),
-        ToolParameter(name="file_pattern", type="str", description="Glob filter e.g. *.py", required=False),
-        ToolParameter(name="regex", type="bool", description="Whether pattern is a regex", required=False, default="false"),
-        ToolParameter(name="max_results", type="int", description="Maximum number of results", required=False),
+        ToolParameter(
+            name="path", type="str",
+            description="Directory or file to search in", required=False,
+        ),
+        ToolParameter(
+            name="file_pattern", type="str",
+            description="Glob filter e.g. *.py", required=False,
+        ),
+        ToolParameter(
+            name="regex", type="bool",
+            description="Whether pattern is a regex",
+            required=False, default="false",
+        ),
+        ToolParameter(
+            name="max_results", type="int",
+            description="Maximum number of results", required=False,
+        ),
     ],
     use_when="Finding where a string, function name, or pattern appears in the codebase",
     token_cost_hint="medium",
@@ -223,10 +270,16 @@ SCHEMA_SEARCH_CODE = ToolSchema(
 
 SCHEMA_FIND_SYMBOLS = ToolSchema(
     name="find_symbols",
-    description="Find symbol definitions (functions, classes, methods) in a file or across the project. Returns signatures.",
+    description=(
+        "Find symbol definitions (functions, classes, methods) "
+        "in a file or across the project. Returns signatures."
+    ),
     parameters=[
         ToolParameter(name="query", type="str", description="Symbol name or pattern to search for"),
-        ToolParameter(name="path", type="str", description="File path to search in (optional)", required=False),
+        ToolParameter(
+            name="path", type="str",
+            description="File path to search in (optional)", required=False,
+        ),
     ],
     use_when="Locating where a class, function, or method is defined",
     token_cost_hint="low",
@@ -244,11 +297,17 @@ SCHEMA_GET_DIAGNOSTICS = ToolSchema(
 
 SCHEMA_RUN_COMMAND = ToolSchema(
     name="run_command",
-    description="Execute a shell command and return its output. Use for running tests, builds, git, etc.",
+    description=(
+        "Execute a shell command and return its output. "
+        "Use for running tests, builds, git, etc."
+    ),
     parameters=[
         ToolParameter(name="command", type="str", description="Shell command to run"),
         ToolParameter(name="cwd", type="str", description="Working directory", required=False),
-        ToolParameter(name="timeout", type="int", description="Timeout in seconds", required=False, default="30"),
+        ToolParameter(
+            name="timeout", type="int",
+            description="Timeout in seconds", required=False, default="30",
+        ),
     ],
     use_when="Running tests, builds, linters, git operations, or any shell command",
     token_cost_hint="medium",
@@ -259,7 +318,10 @@ SCHEMA_WEB_SEARCH = ToolSchema(
     description="Search the web for information. Returns titles, URLs, and snippets.",
     parameters=[
         ToolParameter(name="query", type="str", description="Search query"),
-        ToolParameter(name="max_results", type="int", description="Maximum results to return", required=False),
+        ToolParameter(
+            name="max_results", type="int",
+            description="Maximum results to return", required=False,
+        ),
     ],
     use_when="Looking up documentation, API references, error solutions, or current information",
     token_cost_hint="high",
@@ -270,7 +332,11 @@ SCHEMA_WEB_FETCH = ToolSchema(
     description="Fetch the content of a web page. Returns extracted text.",
     parameters=[
         ToolParameter(name="url", type="str", description="URL to fetch"),
-        ToolParameter(name="extract", type="bool", description="Extract main content vs raw HTML", required=False, default="true"),
+        ToolParameter(
+            name="extract", type="bool",
+            description="Extract main content vs raw HTML",
+            required=False, default="true",
+        ),
     ],
     use_when="You have a URL and need to read its content",
     token_cost_hint="high",
@@ -288,8 +354,14 @@ SCHEMA_GIT_DIFF = ToolSchema(
     name="git_diff",
     description="Show changes between commits, commit and working tree, etc.",
     parameters=[
-        ToolParameter(name="staged", type="bool", description="Show staged changes", required=False, default="false"),
-        ToolParameter(name="path", type="str", description="Limit to a specific path", required=False),
+        ToolParameter(
+            name="staged", type="bool",
+            description="Show staged changes", required=False, default="false",
+        ),
+        ToolParameter(
+            name="path", type="str",
+            description="Limit to a specific path", required=False,
+        ),
     ],
     use_when="Reviewing what changes have been made before committing",
     token_cost_hint="medium",
@@ -299,8 +371,14 @@ SCHEMA_GIT_LOG = ToolSchema(
     name="git_log",
     description="Show commit logs.",
     parameters=[
-        ToolParameter(name="n", type="int", description="Number of commits to show", required=False, default="10"),
-        ToolParameter(name="path", type="str", description="Limit to a specific path", required=False),
+        ToolParameter(
+            name="n", type="int",
+            description="Number of commits to show", required=False, default="10",
+        ),
+        ToolParameter(
+            name="path", type="str",
+            description="Limit to a specific path", required=False,
+        ),
     ],
     use_when="Understanding recent commit history",
     token_cost_hint="low",

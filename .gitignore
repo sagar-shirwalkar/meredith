@@ -1,0 +1,65 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# ── Runtime data ────────────────────────────────────────
+.agent/
+*.db
+*.log
+
+# ── IDE / Editor ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Tooling artifacts ──────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage/
+
+# ── Secrets / credentials ─────────────────────────────
+.env
+.env.*
+.env.local
+.env.production
+.env.development
+*.pem
+*.key
+**/secrets/**
+**/credentials/**
+!**/.env.example
+
+# ── OS files ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Cloud provider credentials ────────────────────────
+.aws/
+.gcp/
+.azure/
+google-cloud-sdk/
+.gcloud/
+
+# ── Local config / identities ─────────────────────────
+.ssh/
+.kube/
+config.json  # Docker auth
+.docker/
+.npmrc
+.netrc
+.gitconfig.local
+.git-credentials
+*.local

@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from coding_agent.config import AppConfig, ZoneConfig
+from coding_agent.config import AppConfig
 from coding_agent.context.budget import TokenBudget
 from coding_agent.context.compressor import OutputCompressor
 from coding_agent.llm.base import count_tokens
@@ -189,7 +189,9 @@ class ContextManager:
             if item.compressible:
                 removed = items.pop(i)
                 self.budget.record_usage(-removed.token_count, zone=zone)
-                logger.debug("Trimmed 1 item from zone %s (%d tokens freed)", zone, removed.token_count)
+                logger.debug(
+                    "Trimmed 1 item from zone %s (%d tokens freed)", zone, removed.token_count
+                )
                 return
 
     def _rotate_working_to_episodic(self) -> None:

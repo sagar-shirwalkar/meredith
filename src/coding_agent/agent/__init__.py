@@ -7,8 +7,8 @@ post-step quality checks.
 """
 
 from coding_agent.agent.core import AgentCore
-from coding_agent.agent.planner import Planner, FlatPlanner, TreeOfThoughtPlanner
-from coding_agent.agent.verifier import Verifier, VerificationResult
+from coding_agent.agent.planner import FlatPlanner, Planner, TreeOfThoughtPlanner
+from coding_agent.agent.verifier import VerificationResult, Verifier
 
 __all__ = [
     "AgentCore",

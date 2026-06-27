@@ -1,204 +1,272 @@
-# mentis-agent
+<h1>
+  <picture>
+    <img src="assets/mentis-agent.svg" width="36" height="36" alt="" style="vertical-align: middle; margin-right: 8px;">
+  </picture>
+  Mentis
+</h1>
 
-Mentis is an AI coding agent with RAG, ACP (Agent Client Protocol) integration, and smart context management.
-Supports both large remote models (Claude, GPT-4) and local models (Ollama / MLX on Apple Silicon and Linux+CUDA).
+[![Python](https://img.shields.io/badge/Python-3.13-yellow?style=for-the-badge&label=Python&labelColor=gray&logo=python&logoColor=blue)](https://python.org)
+[![CI](https://github.com/mentis-ai/mentis-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/mentis-ai/mentis-agent/actions/workflows/ci.yml)
+[![AGPL-3.0](https://img.shields.io/badge/License-AGPLv3-blue?style=for-the-badge)](LICENSE)
+
+Mentis is an AI coding agent purpose-built for software engineering workflows. It operates a **ReAct loop** (Reason → Act → Observe) with strategic planning, RAG-augmented code understanding, and ACP (Agent Client Protocol) integration for native editor support.
+
+- **Remote models** — any OpenAI-compatible API (OpenAI, Anthropic, Together AI, Fireworks, **Opencode**, Azure OpenAI, etc.)
+- **Local models** — Ollama (7–70B) and MLX on Apple Silicon
+
+---
 
 ## Features
 
-- **ReAct Loop**: Think -> Act -> Observe cycle with strategic planning
-- **RAG**: AST-aware code chunking and BM25 retrieval for efficient
-  codebase understanding
-- **ACP**: Run as an Agent Client Protocol server for ACP-aware editors
-  (Zed, JetBrains, Neovim, Emacs, etc.)
-- **Smart Context**: Hierarchical context window with token budgets
-  and auto-compression
-- **Loop Recovery**: Detects and escapes repetitive action patterns
-- **Cross-Session Memory**: Learns project conventions and patterns
-  over time
-- **Skills**: Modular SKILL.md files that teach the agent new
-  capabilities
-- **Dual Profile**: Optimised configs for both large API models and
-  local 7-13B models
+- **ReAct Loop** — Reason, act, and observe in a tight feedback cycle with strategic planning.
+- **RAG** — Tree-sitter AST chunking (with regex fallback) + BM25 retrieval for efficient codebase understanding.
+- **ACP Native** — Run as an [Agent Client Protocol](https://agentclientprotocol.com) server for Zed, JetBrains, Neovim, Emacs, and any ACP-aware editor.
+- **Smart Context** — Hierarchical context window with per-zone token budgets and automatic compression.
+- **Loop Recovery** — Detects repetitive action patterns and applies corrective strategies.
+- **Cross-Session Memory** — Learns project conventions, error patterns, and solutions across sessions via SQLite.
+- **Skills** — Modular `SKILL.md` files that teach the agent new capabilities on the fly.
+- **Dual Profile** — Optimised configurations for both large API models (200k context) and local 7–13B models (32k context).
+
+---
+
+## Quick Start
+
+### 1. Install dependencies & hooks
+
+```bash
+make setup                                                      # Auto-detects Apple Silicon for MLX
+```
+
+Or manually:
+
+```bash
+uv sync --extra dev                                    # Core + dev dependencies (all platforms)
+uv sync --extra mlx                                   # Apple Silicon only: mlx + mlx-lm
+uv run pre-commit install                              # Enable secret-scanning & quality hooks
+```
+
+### 2. Configure credentials
+
+```bash
+export LLM_API_KEY="sk-..."                       # Required: key for your LLM provider (OpenAI, Anthropic, etc.)
+export BRAVE_API_KEY="..."                        # Optional: enable Brave web search (or TAVILY_API_KEY / EXA_API_KEY)
+```
+
+### 3. Run the agent
+
+```bash
+uv run mentis-agent "Add JWT authentication to the login endpoint"   # Execute a task
+uv run mentis-agent --profile local_model "Fix the failing test"     # Use a local model
+uv run mentis-agent -v "Explain the authentication flow"             # Verbose logging
+```
+
+### 4. Start the ACP server (for editor integration)
+
+```bash
+uv run python -m coding_agent.acp.server --profile large_model      # ACP stdio server
+```
+
+Point your editor at the server command above. See [Publishing to the ACP Registry](#publishing-to-the-acp-registry) for distribution.
+
+---
+
+## Configuration Profiles
+
+| Profile | Provider | Context | Router | Planner | Use Case |
+|---|---|---|---|---|---|
+| `large_model` | Remote API (OpenAI-compatible) | 200k tokens | Hybrid (LLM + rules) | Tree-of-thought | Complex multi-file tasks |
+| `local_model` | Ollama / MLX (7–13B) | 32k tokens | Rules only | Flat | Simple edits, offline use |
+
+Edit `config/base.yaml` for shared defaults and `config/large_model.yaml` or `config/local_model.yaml` for profile-specific overrides.
+
+---
 
 ## Project Structure
 
 ```
 mentis-agent/
-├── pyproject.toml
+├── pyproject.toml                    # Package metadata, dependencies, tool config
 ├── config/
-│   ├── base.yaml                 # Shared defaults (token limits, thresholds, paths)
-│   ├── large_model.yaml          # Overrides for remote API models (Claude, GPT-4)
-│   └── local_model.yaml          # Overrides for local Ollama/MLX 7-13B models
-├── src/
-│   └── coding_agent/
-│       ├── __init__.py            # Package root, version, public API
-│       ├── main.py                # CLI entry point, argument parsing, wiring
-│       ├── config.py              # YAML load, merge, validation, dataclass mapping
-│       ├── types.py               # All shared dataclasses, enums, protocols
-│       ├── agent/
-│       │   ├── __init__.py
-│       │   ├── core.py            # Main ReAct loop, step orchestration
-│       │   ├── planner.py         # Strategic planner (tree-of-thought for large, flat for local)
-│       │   └── verifier.py        # Post-step verification (diagnostics, test, diff check)
-│       ├── context/
-│       │   ├── __init__.py
-│       │   ├── manager.py         # Hierarchical context window builder
-│       │   ├── budget.py          # Token budget tracker with per-zone accounting
-│       │   └── compressor.py      # Output truncation, summarization, template compression
-│       ├── tools/
-│       │   ├── __init__.py
-│       │   ├── base.py            # Tool protocol, ToolRegistry, ToolSchema dataclass
-│       │   ├── router.py          # LLM-driven + rule-based + learned tool selection
-│       │   ├── fs.py              # read_file, edit_file, write_file, list_directory
-│       │   ├── search.py          # search_code (ripgrep wrapper), semantic placeholders
-│       │   ├── web.py             # web_search, web_fetch
-│       │   └── git.py             # git_status, git_diff, git_log, git_commit
-│       ├── rag/
-│       │   ├── __init__.py
-│       │   ├── chunker.py         # AST-aware chunking (tree-sitter optional, regex fallback)
-│       │   ├── indexer.py         # SQLite-backed symbol + chunk index builder
-│       │   └── retriever.py       # Hybrid BM25 + optional dense retrieval
-│       ├── recovery/
-│       │   ├── __init__.py
-│       │   ├── detector.py        # Loop detection (exact, semantic, error, stall)
-│       │   └── strategies.py      # Recovery actions (intervention, replan, divergence)
-│       ├── llm/
-│       │   ├── __init__.py
-│       │   ├── base.py            # LLMProtocol, StreamChunk, UsageStats
-│       │   ├── remote.py          # OpenAI-compatible API client (Claude, GPT-4, local /v1)
-│       │   └── local.py           # Ollama native API + MLX subprocess fallback
-│       ├── memory/
-│       │   ├── __init__.py
-│       │   └── store.py           # SQLite cross-session memory (conventions, errors, patterns)
-│       └── acp/
-│           ├── __init__.py
-│           └── server.py          # Run agent as ACP server (Zed, JetBrains, Neovim, Emacs integration)
-├── skills/
-│   ├── code-review/
-│   │   └── SKILL.md
-│   └── debugging/
-│       └── SKILL.md
-├── AGENTS.md                   # Project instructions for agents
+│   ├── base.yaml                     # Shared defaults (token limits, thresholds, paths)
+│   ├── large_model.yaml              # Overrides for remote API models
+│   └── local_model.yaml              # Overrides for local Ollama/MLX models
+├── src/coding_agent/
+│   ├── main.py                       # CLI entry point, argument parsing, wiring
+│   ├── config.py                     # YAML loading, merging, validation
+│   ├── types.py                      # Shared dataclasses, enums, protocols
+│   ├── agent/                        # ReAct loop orchestrator
+│   │   ├── core.py                   # Main loop, step orchestration
+│   │   ├── planner.py                # Strategic planner (tree-of-thought / flat)
+│   │   └── verifier.py               # Post-step verification
+│   ├── context/                      # Context window management
+│   │   ├── manager.py                # Hierarchical context builder
+│   │   ├── budget.py                 # Token budget tracker
+│   │   └── compressor.py             # Output truncation and compression
+│   ├── tools/                         # Agent tool implementations
+│   │   ├── base.py                   # Tool protocol and registry
+│   │   ├── router.py                 # LLM-driven + rule-based tool selection
+│   │   ├── fs.py                     # File read/edit/write/list
+│   │   ├── search.py                 # Code search (ripgrep)
+│   │   ├── web.py                    # Web search and fetch
+│   │   └── git.py                    # Git operations
+│   ├── rag/                          # Retrieval-Augmented Generation
+│   │   ├── chunker.py                # AST-aware chunking
+│   │   ├── indexer.py                # SQLite-backed index
+│   │   └── retriever.py              # BM25 + dense retrieval
+│   ├── recovery/                     # Loop detection and escape
+│   │   ├── detector.py               # Pattern detection (exact, semantic, stall)
+│   │   └── strategies.py             # Recovery interventions
+│   ├── llm/                          # LLM client abstractions
+│   │   ├── base.py                   # LLM protocol and streaming types
+│   │   ├── remote.py                 # OpenAI-compatible API client
+│   │   └── local.py                  # Ollama + MLX client
+│   ├── memory/                       # Cross-session memory
+│   │   └── store.py                  # SQLite memory store
+│   └── acp/                          # Agent Client Protocol server
+│       └── server.py                 # ACP stdio server for editor integration
+├── assets/                           # Project icon and branding assets
+│   └── mentis-agent.svg
+├── skills/                           # Agent skill definitions
+│   ├── code_review/SKILL.md
+│   └── debugging/SKILL.md
+├── .github/workflows/ci.yml          # CI/CD pipeline
+├── AGENTS.md                         # Project instructions for AI agents
 └── README.md
 ```
 
-## Quick Start
+---
 
-### Installation
+## Skills
 
-```bash
-uv sync
-```
+Skills are modular `SKILL.md` files that teach the agent specialized capabilities. They are loaded automatically from the following directories (configurable in `config/base.yaml` under `skills.directories`):
 
-For MLX support on Apple Silicon:
+- `skills/` — project-bundled skills
+- `.agent/skills/` — per-user overrides (gitignored)
 
-```bash
-uv sync --extra mlx
-```
+### Installing a skill
 
-For all optional dependencies:
+1. Create a new directory under `skills/` with a descriptive name:
 
 ```bash
-uv sync --all-extras
+mkdir -p skills/react-patterns                                           # New skill directory
 ```
 
-For development:
+2. Write a `SKILL.md` file with instructions, conventions, and examples the agent should follow.
+3. The agent discovers and loads the skill automatically on next startup.
 
-```bash
-uv sync --extra dev
-```
+### Discovering skills
 
-### Configuration
+Browse the community skill library at [skills.sh](https://www.skills.sh/) for ready-made skills covering React, Go, testing, security, and more. Skills are plain Markdown files — drop them in and they work.
 
-Set your API key:
-
-```bash
-export OPENAI_API_KEY="sk-..."
-```
-
-For web search (optional):
-
-```bash
-export BRAVE_API_KEY="..."
-```
-
-Or:
-
-```bash
-export TAVILY_API_KEY="..."
-```
-
-### Usage
-
-Run the agent on a task:
-
-```bash
-uv run coding-agent "Add JWT authentication to the login endpoint"
-```
-
-With a specific profile:
-
-```bash
-uv run coding-agent --profile local_model "Fix the failing test in test_auth.py"
-```
-
-With a specific working directory:
-
-```bash
-uv run coding-agent --profile large_model --working-dir ./myproject "Refactor the user service"
-```
-
-Verbose logging:
-
-```bash
-uv run coding-agent -v "Explain the authentication flow"
-```
-
-Run as an ACP server (for Zed, JetBrains, Neovim, Emacs):
-
-```bash
-uv run python -m coding_agent.acp.server --profile local_model
-```
-
-## Configuration Profiles
-
-```bash
-Profile       Model          Context  Router                Planner
-------------- -------------- -------- --------------------- ----------------
-large_model   Claude/GPT-4   200k     Hybrid (LLM + rules) Tree-of-thought
-local_model   Ollama 7-13B   32k      Rules only           Flat
-```
-
-Edit config/base.yaml for shared defaults, or the profile-specific
-YAML for overrides.
+---
 
 ## Architecture
 
-The agent operates in a ReAct loop:
+The agent operates in a continuous ReAct loop:
 
-1. **Plan**: Decompose the task into ordered subtasks
-2. **Think**: Reason about the current state and next action
-3. **Act**: Select and execute a tool (read, edit, search, run, etc.)
-4. **Observe**: Process the tool result
-5. **Verify**: Check that the step achieved its goal
-6. **Recover**: If stuck in a loop, inject corrective interventions
-7. **Repeat** until all subtasks are complete
+1. Plan             Decompose task → ordered subtasks
+2. Think            Reason about state and next action
+3. Act              Execute tool (read, edit, search, run)
+4. Observe          Process tool result
+5. Verify           Check step quality (diagnostics, tests)
+6. Recover          Detect loops → inject corrective action
+7. Repeat           Until all subtasks complete
 
-### Key Design Decisions
+### Key design decisions
 
-- **Token efficiency**: Every tool output is compressed before entering the context window. RAG provides symbol-level access instead of full file reads.
-- **Graceful degradation**: Local models use simpler planning, rule-based tool routing, and more aggressive compression.
-- **Safety**: Path traversal is blocked, git commits require explicit consent, and all operations are scoped to the working directory.
+- **Token efficiency** — Every tool output is compressed before entering the context window. RAG provides symbol-level access instead of full file reads.
+- **Graceful degradation** — Local models use simpler planning, rule-based tool routing, and more aggressive compression.
+- **Safety** — Path traversal is blocked, git commits require explicit consent, and all operations are scoped to the working directory.
+
+---
+
+## Publishing to the ACP Registry
+
+### Zed ACP Registry
+
+The [ACP Registry](https://agentclientprotocol.com/registry) is a curated directory of ACP-compatible agents. To publish mentis-agent:
+
+1. **Fork the registry** at [github.com/agentclientprotocol/registry](https://github.com/agentclientprotocol/registry).
+2. **Add your agent definition** to `agents/` (follow the existing entries as a template):
+
+```yaml
+# agents/mentis-agent.yml
+name: mentis-agent
+description: AI coding agent with RAG, smart context, and loop recovery
+command: uv
+args:
+  - run
+  - python
+  - -m
+  - coding_agent.acp.server
+  - --profile
+  - large_model
+version: 0.2.0
+```
+
+3. **Add an icon** — use the icon at [`assets/mentis-agent.svg`](assets/mentis-agent.svg).
+4. **Open a pull request** to the registry repository.
+
+The registry supports authentication methods, version tracking, and links to source. See the [registry documentation](https://github.com/agentclientprotocol/registry) for full details.
+
+### Opencode ACP Registry
+
+Opencode also maintains an ACP registry. The process is similar:
+
+1. **Visit the Opencode ACP registry** and follow their submission guidelines.
+2. **Register your agent** with the same `uv run python -m coding_agent.acp.server` command.
+3. **Specify your authentication method** — the registry supports token-based, OAuth, and API key methods.
+
+---
+
+## CI/CD
+
+The project uses GitHub Actions for continuous integration and automated publishing:
+
+| Workflow | Trigger | Actions |
+|---|---|---|
+| `lint` | Every push/PR | Ruff linting and formatting checks |
+| `typecheck` | Every push/PR | Mypy strict mode type checking |
+| `test` | Every push/PR | Pytest with coverage |
+| `build` | Published release | Build wheel + publish to PyPI |
+
+### Manual release
+
+```bash
+# 1. Tag the release
+git tag v0.2.0
+git push origin v0.2.0
+
+# 2. Create a GitHub Release from the tag
+#    The CI pipeline will automatically build and publish to PyPI.
+```
+
+The build step requires a `PYPI_TOKEN` secret configured in your GitHub repository settings.
+
+---
 
 ## Development
 
 ```bash
-uv sync --extra dev
-uv run ruff check src/
-uv run ruff format src/
-uv run pytest tests/ -v
+make setup                                                      # One-shot: install deps + hooks + lint
 ```
+
+Or step by step:
+
+```bash
+uv sync --extra dev                                    # Core + dev dependencies (all platforms)
+uv sync --extra mlx                                   # Apple Silicon only: mlx + mlx-lm
+uv run pre-commit install                              # Enable secret-scanning hooks
+make lint                                               # ruff check
+make format                                             # ruff format
+make typecheck                                          # mypy --strict (requires mypy installed)
+make test                                               # pytest -v
+make check                                              # lint + typecheck + test (CI equivalent)
+make clean                                              # Remove caches and build artifacts
+```
+
+---
 
 ## License
 
-MIT
+[AGPL-3.0](LICENSE)

@@ -13,17 +13,15 @@ at the end with new learnings.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any
 
-from coding_agent.config import AppConfig, MemoryConfig
+from coding_agent.config import AppConfig
 from coding_agent.llm.base import count_tokens
-from coding_agent.types import AgentState, TaskStatus
+from coding_agent.types import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +171,7 @@ class MemoryStore:
         total_tokens = 0
         max_total_tokens = 800
 
-        for score, row in scored[:limit]:
+        for _score, row in scored[:limit]:
             mem_id, mem_type, content, tags, confidence, _ = row
             entry = f"[{mem_type}] {content}"
             entry_tokens = count_tokens(entry)
@@ -186,7 +184,8 @@ class MemoryStore:
 
             # Update access count
             self._conn.execute(
-                "UPDATE memories SET access_count = access_count + 1, last_accessed_at = ? WHERE id = ?",
+                "UPDATE memories SET access_count = access_count + 1, "
+                "last_accessed_at = ? WHERE id = ?",
                 (time.time(), mem_id),
             )
 
@@ -225,7 +224,10 @@ class MemoryStore:
                 if step.tool_result and not step.tool_result.success:
                     error_step = step
                     break
-                if step.tool_result and step.tool_result.success and step.tool_call and step.tool_call.name in ("edit_file", "write_file"):
+                if (
+                    step.tool_result and step.tool_result.success
+                    and step.tool_call and step.tool_call.name in ("edit_file", "write_file")
+                ):
                     success_after_error = True
 
             if error_step and success_after_error:

@@ -120,7 +120,7 @@ class SearchTools(ToolExecutor):
                 output = await self._grep_search(
                     pattern, search_path, file_pattern, use_regex, max_results
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ToolResult(
                 tool_call_id=call.id,
                 tool_name=call.name,
@@ -191,7 +191,7 @@ class SearchTools(ToolExecutor):
 
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             raise
 
@@ -242,7 +242,7 @@ class SearchTools(ToolExecutor):
 
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=20)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             raise
 
@@ -261,9 +261,8 @@ class SearchTools(ToolExecutor):
 
         lines = raw.split("\n")
         result_lines: list[str] = []
-        count = 0
 
-        for line in lines:
+        for count, line in enumerate(lines):
             if count >= max_results:
                 result_lines.append(f"... ({len(lines) - max_results} more matches)")
                 break
@@ -273,7 +272,6 @@ class SearchTools(ToolExecutor):
                 line = line[:197] + "..."
 
             result_lines.append(line)
-            count += 1
 
         return "\n".join(result_lines)
 
@@ -434,7 +432,7 @@ class SearchTools(ToolExecutor):
                 output = stdout.decode(errors="replace").strip()
                 if output:
                     return output
-            except (asyncio.TimeoutError, FileNotFoundError):
+            except (TimeoutError, FileNotFoundError):
                 continue
         return ""
 
@@ -450,9 +448,12 @@ class SearchTools(ToolExecutor):
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20)
             output = stdout.decode(errors="replace").strip()
             # Filter to only errors related to our file
-            relevant = [l for l in output.split("\n") if str(path) in l or path.name in l]
+            relevant = [
+                line for line in output.split("\n")
+                if str(path) in line or path.name in line
+            ]
             return "\n".join(relevant[:10])
-        except (asyncio.TimeoutError, FileNotFoundError):
+        except (TimeoutError, FileNotFoundError):
             return ""
 
     async def _diag_rust(self) -> str:
@@ -465,10 +466,10 @@ class SearchTools(ToolExecutor):
                 cwd=str(self.workdir),
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
-            output = stderr.decode(errors="replace").strip()
-            errors = [l for l in output.split("\n") if "error" in l.lower()][:10]
+            output = stdout.decode(errors="replace").strip()
+            errors = [line for line in output.split("\n") if "error" in line.lower()][:10]
             return "\n".join(errors)
-        except (asyncio.TimeoutError, FileNotFoundError):
+        except (TimeoutError, FileNotFoundError):
             return ""
 
     async def _diag_go(self, path: Path) -> str:
@@ -481,6 +482,6 @@ class SearchTools(ToolExecutor):
                 cwd=str(self.workdir),
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
-            return stderr.decode(errors="replace").strip()
-        except (asyncio.TimeoutError, FileNotFoundError):
+            return stdout.decode(errors="replace").strip()
+        except (TimeoutError, FileNotFoundError):
             return ""

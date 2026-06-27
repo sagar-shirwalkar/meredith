@@ -16,8 +16,8 @@ import asyncio
 import json
 import logging
 import os
-import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -26,8 +26,6 @@ from coding_agent.llm.base import (
     StreamChunk,
     StreamEvent,
     UsageStats,
-    count_tokens,
-    parse_tool_calls_from_response,
 )
 from coding_agent.types import Message, Role, ToolCall, ToolSchema
 
@@ -47,14 +45,14 @@ class RemoteLLMClient(LLMClient):
     Async client for any OpenAI-compatible chat/completions endpoint.
 
     The API key is read from the environment variable named in
-    *api_key_env* (default ``OPENAI_API_KEY``).
+    *api_key_env* (default ``LLM_API_KEY``).
     """
 
     def __init__(
         self,
         model: str = "gpt-4o",
         api_base: str = "https://api.openai.com/v1",
-        api_key_env: str = "OPENAI_API_KEY",
+        api_key_env: str = "LLM_API_KEY",
         temperature: float = 0.2,
         max_tokens: int = 4096,
         timeout_seconds: float = 120.0,
@@ -98,7 +96,7 @@ class RemoteLLMClient(LLMClient):
         tool_calls = self._parse_tool_calls_response(msg.get("tool_calls", []))
 
         usage_raw = resp_data.get("usage", {})
-        usage = UsageStats(
+        _usage = UsageStats(
             prompt_tokens=usage_raw.get("prompt_tokens", 0),
             completion_tokens=usage_raw.get("completion_tokens", 0),
             total_tokens=usage_raw.get("total_tokens", 0),

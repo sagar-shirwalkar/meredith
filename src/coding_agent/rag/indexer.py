@@ -17,10 +17,9 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any
 
 from coding_agent.config import AppConfig
-from coding_agent.rag.chunker import AstChunker, Chunker, RegexChunker, create_chunker
+from coding_agent.rag.chunker import create_chunker
 from coding_agent.types import CodeChunk, Symbol, SymbolKind
 
 logger = logging.getLogger(__name__)
@@ -184,7 +183,8 @@ class Indexer:
             content_hash = hashlib.md5(content.encode()).hexdigest()
             import time
             self._conn.execute(
-                "INSERT OR REPLACE INTO file_hashes (file_path, content_hash, indexed_at) VALUES (?, ?, ?)",
+                "INSERT OR REPLACE INTO file_hashes "
+                "(file_path, content_hash, indexed_at) VALUES (?, ?, ?)",
                 (rel_path, content_hash, time.time()),
             )
 
@@ -279,7 +279,7 @@ class Indexer:
         We extract the signature (first line) and docstring.
         """
         symbols: list[Symbol] = []
-        lines = content.split("\n")
+        _lines = content.split("\n")
 
         for chunk in chunks:
             if not chunk.symbol_name or chunk.symbol_kind in (None, SymbolKind.MODULE):
