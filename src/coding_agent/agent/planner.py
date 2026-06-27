@@ -171,7 +171,7 @@ class Planner(ABC):
                 subtasks.append(
                     SubTask(
                         id=st_raw.get("id", i + 1),
-                        description=st_raw.get("description", st_raw.get("desc", "")),
+                        description=st_raw.get("description") or st_raw.get("desc") or "",
                         files=st_raw.get("files", []),
                     )
                 )

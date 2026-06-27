@@ -140,7 +140,7 @@ class ToolRegistry:
         """Tear down any resources held by executors."""
         for executor in self.executors.values():
             if hasattr(executor, "close"):
-                await executor.close()  # type: ignore[attr-defined]
+                await executor.close()
 
     def available_tool_names(self) -> list[str]:
         """Return sorted list of all registered tool names."""

@@ -6,7 +6,8 @@ Provides the ToolRegistry (schema + executor) and ToolRouter
 implementations for filesystem, search, web, and git operations.
 """
 
-from coding_agent.tools.base import ToolExecutor, ToolRegistry, ToolSchema
+from coding_agent.tools.base import ToolExecutor, ToolRegistry
+from coding_agent.types import ToolSchema
 from coding_agent.tools.router import ToolRouter
 
 __all__ = [

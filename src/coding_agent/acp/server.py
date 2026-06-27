@@ -33,13 +33,22 @@ from acp.interfaces import Client
 from acp.schema import (
     AgentCapabilities,
     AudioContentBlock,
+    AuthenticateResponse,
     ClientCapabilities,
+    CloseSessionResponse,
     EmbeddedResourceContentBlock,
+    ForkSessionResponse,
     HttpMcpServer,
     ImageContentBlock,
     Implementation,
+    ListSessionsResponse,
+    LoadSessionResponse,
     McpServerStdio,
     ResourceContentBlock,
+    ResumeSessionResponse,
+    SetSessionConfigOptionResponse,
+    SetSessionModeResponse,
+    SetSessionModelResponse,
     SseMcpServer,
     TextContentBlock,
 )
@@ -133,6 +142,68 @@ class CodingAgentServer(Agent):
 
     async def cancel(self, session_id: str, **kwargs: Any) -> None:
         logger.info("Cancel requested for session %s", session_id)
+
+    async def load_session(
+        self,
+        cwd: str,
+        session_id: str,
+        additional_directories: list[str] | None = None,
+        mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+        **kwargs: Any,
+    ) -> LoadSessionResponse | None:
+        return None
+
+    async def list_sessions(
+        self,
+        additional_directories: list[str] | None = None,
+        cursor: str | None = None,
+        cwd: str | None = None,
+        **kwargs: Any,
+    ) -> ListSessionsResponse:
+        return ListSessionsResponse(sessions=[])
+
+    async def set_session_mode(self, mode_id: str, session_id: str, **kwargs: Any) -> SetSessionModeResponse | None:
+        return None
+
+    async def set_session_model(self, model_id: str, session_id: str, **kwargs: Any) -> SetSessionModelResponse | None:
+        return None
+
+    async def set_config_option(
+        self, config_id: str, session_id: str, value: str | bool, **kwargs: Any
+    ) -> SetSessionConfigOptionResponse | None:
+        return None
+
+    async def authenticate(self, method_id: str, **kwargs: Any) -> AuthenticateResponse | None:
+        return None
+
+    async def fork_session(
+        self,
+        cwd: str,
+        session_id: str,
+        additional_directories: list[str] | None = None,
+        mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+        **kwargs: Any,
+    ) -> ForkSessionResponse:
+        return ForkSessionResponse(session_id=session_id)
+
+    async def resume_session(
+        self,
+        cwd: str,
+        session_id: str,
+        additional_directories: list[str] | None = None,
+        mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+        **kwargs: Any,
+    ) -> ResumeSessionResponse:
+        return ResumeSessionResponse()
+
+    async def close_session(self, session_id: str, **kwargs: Any) -> CloseSessionResponse | None:
+        return None
+
+    async def ext_method(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+    async def ext_notification(self, method: str, params: dict[str, Any]) -> None:
+        pass
 
     # ── Helpers ────────────────────────────────────────────────
 

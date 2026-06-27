@@ -21,6 +21,8 @@ from pathlib import Path
 
 from coding_agent.config import AppConfig
 from coding_agent.llm.base import count_tokens
+from typing import Any
+
 from coding_agent.types import AgentState
 
 logger = logging.getLogger(__name__)
@@ -140,7 +142,7 @@ class MemoryStore:
 
         # Score each memory by relevance to the query
         query_words = set(re.findall(r"\w+", query.lower()))
-        scored: list[tuple[float, tuple]] = []
+        scored: list[tuple[float, tuple[Any, ...]]] = []
 
         for row in rows:
             mem_id, mem_type, content, tags, confidence, access_count = row
@@ -230,7 +232,7 @@ class MemoryStore:
                 ):
                     success_after_error = True
 
-            if error_step and success_after_error:
+            if error_step and success_after_error and error_step.tool_result:
                 error_msg = (error_step.tool_result.error or error_step.tool_result.output)[:100]
                 self.store(
                     type="error_pattern",

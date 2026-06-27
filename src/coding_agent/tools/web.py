@@ -47,7 +47,7 @@ class _SearchHit:
         self.snippet = snippet
 
 
-def _normalise_brave_results(data: dict) -> list[_SearchHit]:
+def _normalise_brave_results(data: dict[str, Any]) -> list[_SearchHit]:
     """Parse Brave Search API response."""
     hits: list[_SearchHit] = []
     for item in data.get("web", {}).get("results", []):
@@ -59,7 +59,7 @@ def _normalise_brave_results(data: dict) -> list[_SearchHit]:
     return hits
 
 
-def _normalise_tavily_results(data: dict) -> list[_SearchHit]:
+def _normalise_tavily_results(data: dict[str, Any]) -> list[_SearchHit]:
     """Parse Tavily API response."""
     hits: list[_SearchHit] = []
     for item in data.get("results", []):
@@ -71,7 +71,7 @@ def _normalise_tavily_results(data: dict) -> list[_SearchHit]:
     return hits
 
 
-def _normalise_exa_results(data: dict) -> list[_SearchHit]:
+def _normalise_exa_results(data: dict[str, Any]) -> list[_SearchHit]:
     """Parse Exa API response."""
     hits: list[_SearchHit] = []
     for item in data.get("results", []):

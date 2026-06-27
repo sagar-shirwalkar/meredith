@@ -135,7 +135,7 @@ class LocalLLMClient(LLMClient):
         self.mlx_fallback = mlx_fallback
         self._backend: str = "ollama"  # "ollama" | "mlx"
         self._mlx_port: int = 0
-        self._mlx_proc: subprocess.Popen | None = None
+        self._mlx_proc: subprocess.Popen[bytes] | None = None
 
         self._http = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_seconds, connect=10.0),
@@ -193,13 +193,13 @@ class LocalLLMClient(LLMClient):
 
         cmd = [
             "python3", "-m", "mlx_lm.server",
-            "--model", self.mlx_model_path,  # type: ignore[arg-type]
+            "--model", self.mlx_model_path or "",
             "--port", str(self._mlx_port),
             "--host", "127.0.0.1",
         ]
-        logger.info("Starting MLX server: %s", " ".join(cmd))
+        logger.info("Starting MLX server: %s", " ".join(str(c) for c in cmd))
         self._mlx_proc = subprocess.Popen(
-            cmd,
+            [str(c) for c in cmd],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -371,7 +371,7 @@ class LocalLLMClient(LLMClient):
         return payload
 
     @staticmethod
-    def _parse_ollama_tool_calls(raw: list[dict]) -> list[ToolCall]:
+    def _parse_ollama_tool_calls(raw: list[dict[str, Any]]) -> list[ToolCall]:
         """Parse tool_calls from an Ollama response."""
         calls: list[ToolCall] = []
         for i, tc in enumerate(raw):
@@ -494,7 +494,7 @@ class LocalLLMClient(LLMClient):
         return payload
 
     @staticmethod
-    def _parse_mlx_tool_calls(raw: list[dict]) -> list[ToolCall] | None:
+    def _parse_mlx_tool_calls(raw: list[dict[str, Any]]) -> list[ToolCall] | None:
         """Parse tool_calls from an MLX server response (OpenAI format)."""
         if not raw:
             return None

@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 
 from coding_agent.config import AppConfig, load_config
+from typing import Any
+
 from coding_agent.llm.base import LLMClient
 from coding_agent.llm.local import LocalLLMClient
 from coding_agent.llm.remote import RemoteLLMClient
@@ -184,7 +186,7 @@ def cli() -> None:
     args = parser.parse_args()
 
     # Build CLI overrides dict
-    overrides: dict = {}
+    overrides: dict[str, Any] = {}
     if args.working_dir:
         overrides["agent"] = {"working_directory": args.working_dir}
     if args.model:

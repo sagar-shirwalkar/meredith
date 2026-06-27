@@ -187,7 +187,7 @@ class AppConfig:
 _CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "config"
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Recursively merge *override* into *base*. Lists are replaced, not appended."""
     merged = base.copy()
     for key, value in override.items():
@@ -198,7 +198,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return merged
 
 
-def _load_yaml(path: Path) -> dict:
+def _load_yaml(path: Path) -> dict[str, Any]:
     """Load a YAML file, returning an empty dict if it doesn't exist."""
     if not path.exists():
         return {}

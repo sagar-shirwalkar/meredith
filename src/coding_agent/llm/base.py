@@ -21,6 +21,16 @@ import tiktoken
 
 from coding_agent.types import Message, ToolCall, ToolSchema
 
+__all__: list[str] = [
+    "LLMClient",
+    "StreamChunk",
+    "StreamEvent",
+    "UsageStats",
+    "count_messages_tokens",
+    "count_tokens",
+    "parse_tool_calls_from_response",
+]
+
 # ──────────────────────────────────────────────────────────────
 # Streaming types
 # ──────────────────────────────────────────────────────────────
@@ -156,7 +166,7 @@ class LLMClient(abc.ABC):
     # ── Streaming ─────────────────────────────────────────────
 
     @abc.abstractmethod
-    async def chat_stream(
+    def chat_stream(
         self,
         messages: list[Message],
         tools: list[ToolSchema] | None = None,
@@ -170,6 +180,12 @@ class LLMClient(abc.ABC):
         TOOL_CALL_* chunks for function calls, then assemble the
         final Message once a DONE event is received.
         """
+        ...
+
+    # ── Lifecycle ─────────────────────────────────────────────
+
+    async def close(self) -> None:
+        """Release any resources held by the client."""
         ...
 
     # ── Convenience: count tokens ─────────────────────────────

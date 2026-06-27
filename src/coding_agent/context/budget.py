@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from typing import Any
+
 from coding_agent.config import StepAllocConfig
 
 logger = logging.getLogger(__name__)
@@ -151,7 +153,7 @@ class TokenBudget:
 
     # ── Estimation helpers ────────────────────────────────────
 
-    def estimate_tool_output(self, tool_name: str, params: dict) -> int:
+    def estimate_tool_output(self, tool_name: str, params: dict[str, Any]) -> int:
         """
         Rough estimate of how many tokens a tool call will produce.
 
@@ -159,7 +161,7 @@ class TokenBudget:
         """
         if tool_name == "read_file":
             # Estimate ~3 tokens per line (code is denser than prose)
-            lines = params.get("end_line", 50) - params.get("start_line", 1)
+            lines = int(params.get("end_line", 50)) - int(params.get("start_line", 1))
             return max(50, lines * 3)
         elif tool_name == "search_code":
             return self.step_allocations.tool_result

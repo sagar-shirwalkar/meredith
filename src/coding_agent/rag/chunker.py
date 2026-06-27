@@ -194,8 +194,8 @@ class RegexChunker(Chunker):
         # Find all symbol boundaries
         symbols: list[tuple[int, str, SymbolKind]] = []
 
-        func_re: re.Pattern = rules["function"]
-        class_re: re.Pattern = rules["class"]
+        func_re: re.Pattern[str] = rules["function"]
+        class_re: re.Pattern[str] = rules["class"]
 
         for match in func_re.finditer(content):
             # Determine the function name (could be group 2 or 4)
@@ -310,7 +310,7 @@ class AstChunker(Chunker):
         self._regex_chunker = RegexChunker(config)
         self._ts_available = False
         try:
-            import tree_sitter_languages  # noqa: F401
+            import tree_sitter_languages  # type: ignore[import-not-found]  # noqa: F401
             self._ts_available = True
             logger.info("tree-sitter-languages available — AST chunking enabled")
         except ImportError:
@@ -341,7 +341,7 @@ class AstChunker(Chunker):
         language: str,
     ) -> list[CodeChunk]:
         """Use tree-sitter to parse and chunk a file."""
-        import tree_sitter_languages
+        import tree_sitter_languages  # noqa: F401
 
         parser = tree_sitter_languages.get_parser(language)
         tree = parser.parse(content.encode("utf-8"))

@@ -73,7 +73,7 @@ class Verifier:
         # 1. Tool call succeeded?
         check_name = "tool_success"
         checks_run.append(check_name)
-        if step.tool_result and not step.tool_result.success:
+        if step.tool_result and not step.tool_result.success and step.tool_call:
             issues.append(
                 f"Tool {step.tool_call.name} failed: {step.tool_result.error}"
             )

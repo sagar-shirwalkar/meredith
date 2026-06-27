@@ -194,7 +194,7 @@ class AgentCore:
 
         # Load cross-session memories relevant to this task
         if self._memory:
-            memories = await self._memory.recall_relevant(self.task)
+            memories = self._memory.recall_relevant(self.task)
             if memories:
                 self._messages.append(Message(
                     role=Role.SYSTEM,
@@ -278,6 +278,8 @@ class AgentCore:
                     logger.warning(
                         "Loop detected: %s (severity=%s)", detection.loop_type, detection.severity
                     )
+                    if self._recovery_strategies is None:
+                        raise RuntimeError("Recovery strategies not initialised")
                     action = await self._recovery_strategies.recover(detection, self.state)
                     self._apply_recovery(action)
                     self._recovery_attempts += 1

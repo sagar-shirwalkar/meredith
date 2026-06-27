@@ -158,8 +158,8 @@ class SearchTools(ToolExecutor):
         context_lines: int,
     ) -> str:
         """Execute a search using ripgrep."""
-        cmd = [
-            self._rg_path,  # type: ignore[list-item]
+        cmd: list[str] = [
+            self._rg_path or "rg",
             "--line-number",
             "--color=never",
             "--no-heading",
@@ -214,8 +214,8 @@ class SearchTools(ToolExecutor):
         max_results: int,
     ) -> str:
         """Execute a search using GNU grep (fallback)."""
-        cmd = [
-            self._grep_path,  # type: ignore[list-item]
+        cmd: list[str] = [
+            self._grep_path or "grep",
             "--recursive",
             "--line-number",
             "--color=never",

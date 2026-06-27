@@ -193,7 +193,7 @@ class RemoteLLMClient(LLMClient):
 
     # ── HTTP helpers ──────────────────────────────────────────
 
-    async def _request_with_retries(self, path: str, payload: dict) -> dict:
+    async def _request_with_retries(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         """POST with exponential backoff on retryable status codes."""
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):
@@ -208,7 +208,7 @@ class RemoteLLMClient(LLMClient):
                     await asyncio.sleep(wait)
                     continue
                 resp.raise_for_status()
-                return resp.json()
+                return dict(resp.json())
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code not in _RETRYABLE_STATUS:
                     raise
@@ -226,7 +226,7 @@ class RemoteLLMClient(LLMClient):
 
         raise RuntimeError(f"LLM API failed after {_MAX_RETRIES} retries") from last_exc
 
-    async def _stream_lines(self, path: str, payload: dict) -> AsyncIterator[str]:
+    async def _stream_lines(self, path: str, payload: dict[str, Any]) -> AsyncIterator[str]:
         """POST with streaming and yield raw SSE lines."""
         async with self._http.stream("POST", path, json=payload) as resp:
             resp.raise_for_status()
@@ -278,7 +278,7 @@ class RemoteLLMClient(LLMClient):
         return d
 
     @staticmethod
-    def _parse_tool_calls_response(raw: list[dict]) -> list[ToolCall] | None:
+    def _parse_tool_calls_response(raw: list[dict[str, Any]]) -> list[ToolCall] | None:
         """Parse tool_calls from a non-streaming response."""
         if not raw:
             return None
