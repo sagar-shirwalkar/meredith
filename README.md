@@ -6,7 +6,7 @@
 
 <p align="center">
   <picture>
-    <img src="assets/meredith.svg" width="200" height="200" alt="Meredith">
+    <img src="assets/meredith.svg" width="400" height="400" alt="Meredith">
   </picture>
 </p>
 
