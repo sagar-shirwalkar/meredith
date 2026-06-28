@@ -5,7 +5,6 @@ import sqlite3
 from coding_agent.rag.graph import CodeGraph, extract_calls, extract_imports, extract_inheritance
 from coding_agent.types import EdgeType, GraphEdge
 
-
 # ── Fixtures ─────────────────────────────────────────────
 
 
@@ -39,7 +38,7 @@ def test_create_table():
         "line_start INTEGER, line_end INTEGER, content TEXT, "
         "symbol_name TEXT, symbol_kind TEXT)"
     )
-    graph = CodeGraph(conn)
+    CodeGraph(conn)
     tables = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'"
     ).fetchall()
