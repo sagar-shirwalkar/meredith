@@ -127,6 +127,67 @@ def parse_tool_calls_from_response(
 
 
 # ──────────────────────────────────────────────────────────────
+# Shared wire-format helpers
+# ──────────────────────────────────────────────────────────────
+
+
+def message_to_openai_dict(msg: Message) -> dict[str, Any]:
+    """Convert a Message to the OpenAI /v1/chat/completions format."""
+    d: dict[str, Any] = {"role": msg.role.value, "content": msg.content or ""}
+    if msg.tool_calls:
+        d["tool_calls"] = [
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {
+                    "name": tc.name,
+                    "arguments": json.dumps(tc.arguments),
+                },
+            }
+            for tc in msg.tool_calls
+        ]
+    if msg.tool_call_id:
+        d["tool_call_id"] = msg.tool_call_id
+    if msg.name:
+        d["name"] = msg.name
+    return d
+
+
+# ──────────────────────────────────────────────────────────────
+# Shared SSE streaming parser (OpenAI-compatible)
+# ──────────────────────────────────────────────────────────────
+
+
+async def openai_sse_chunks(
+    client: Any,
+    url: str,
+    payload: dict[str, Any],
+) -> AsyncIterator[dict[str, Any]]:
+    """
+    POST to an OpenAI-compatible streaming endpoint and yield parsed JSON chunks.
+
+    Yields one dict per ``data:`` SSE line.  Skips ``[DONE]`` signals
+    and invalid JSON lines transparently.  The caller builds
+    StreamChunk objects from the received dicts.
+
+    *client* must be an ``httpx.AsyncClient`` (or anything with the
+    same ``.stream()`` async-context-manager interface).
+    """
+    async with client.stream("POST", url, json=payload) as resp:
+        resp.raise_for_status()
+        async for line in resp.aiter_lines():
+            if not line.startswith("data: "):
+                continue
+            data_str = line[6:].strip()
+            if data_str == "[DONE]":
+                return
+            try:
+                yield json.loads(data_str)
+            except json.JSONDecodeError:
+                continue
+
+
+# ──────────────────────────────────────────────────────────────
 # Abstract LLM client
 # ──────────────────────────────────────────────────────────────
 

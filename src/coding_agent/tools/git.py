@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from coding_agent.config import AppConfig
-from coding_agent.llm.base import count_tokens
 from coding_agent.tools.base import (
     SCHEMA_GIT_COMMIT,
     SCHEMA_GIT_DIFF,
@@ -44,36 +44,20 @@ class GitTools(ToolExecutor):
 
     # ── Dispatch ──────────────────────────────────────────────
 
-    async def execute(self, call: ToolCall) -> ToolResult:
-        dispatch = {
+    def _dispatch(self) -> dict[str, Callable[[ToolCall], Awaitable[ToolResult]]]:
+        return {
             "git_status": self._git_status,
             "git_diff": self._git_diff,
             "git_log": self._git_log,
             "git_commit": self._git_commit,
         }
-        handler = dispatch.get(call.name)
-        if handler is None:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Unknown git tool: {call.name}",
-                success=False,
-                error=f"unknown_git_tool: {call.name}",
-            )
-        return await handler(call)
 
     # ── git_status ────────────────────────────────────────────
 
     async def _git_status(self, call: ToolCall) -> ToolResult:
         """Show git working tree status."""
         output = await self._run_git("status", "--short", "--branch")
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── git_diff ──────────────────────────────────────────────
 
@@ -90,13 +74,7 @@ class GitTools(ToolExecutor):
             args.append(path)
 
         output = await self._run_git(*args)
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── git_log ───────────────────────────────────────────────
 
@@ -115,13 +93,7 @@ class GitTools(ToolExecutor):
             args.extend(["--", path])
 
         output = await self._run_git(*args)
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── git_commit ────────────────────────────────────────────
 
@@ -133,38 +105,21 @@ class GitTools(ToolExecutor):
         explicit user consent (the agent must ask before committing).
         """
         if not self.config.tools.git.auto_commit:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=(
-                    "Commit blocked: auto_commit is disabled. "
-                    "Ask the user for permission before committing."
-                ),
-                success=False,
-                error="auto_commit_disabled",
+            return self._error_result(
+                call,
+                "Commit blocked: auto_commit is disabled. "
+                "Ask the user for permission before committing.",
+                "auto_commit_disabled",
             )
 
         message = call.arguments.get("message", "")
         if not message:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Error: commit message is empty",
-                success=False,
-                error="empty_message",
-            )
+            return self._error_result(call, "Error: commit message is empty", "empty_message")
 
-        # Stage all modified files first
         await self._run_git("add", "-A")
 
         output = await self._run_git("commit", "-m", message)
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── Helper ────────────────────────────────────────────────
 

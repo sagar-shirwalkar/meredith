@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from coding_agent.config import AppConfig
-from coding_agent.llm.base import count_tokens
 from coding_agent.tools.base import (
     SCHEMA_EDIT_FILE,
     SCHEMA_LIST_DIRECTORY,
@@ -45,23 +45,13 @@ class FsTools(ToolExecutor):
 
     # ── Dispatch ──────────────────────────────────────────────
 
-    async def execute(self, call: ToolCall) -> ToolResult:
-        dispatch = {
+    def _dispatch(self) -> dict[str, Callable[[ToolCall], Awaitable[ToolResult]]]:
+        return {
             "read_file": self._read_file,
             "write_file": self._write_file,
             "edit_file": self._edit_file,
             "list_directory": self._list_directory,
         }
-        handler = dispatch.get(call.name)
-        if handler is None:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Unknown fs tool: {call.name}",
-                success=False,
-                error=f"unknown_fs_tool: {call.name}",
-            )
-        return await handler(call)
 
     # ── read_file ─────────────────────────────────────────────
 
@@ -76,33 +66,17 @@ class FsTools(ToolExecutor):
             return self._path_error(call)
 
         if not path.exists():
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"File not found: {path}",
-                success=False,
-                error="file_not_found",
-            )
+            return self._error_result(call, f"File not found: {path}", "file_not_found")
 
         if path.is_dir():
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Path is a directory, not a file: {path}",
-                success=False,
-                error="is_directory",
+            return self._error_result(
+                call, f"Path is a directory, not a file: {path}", "is_directory"
             )
 
         try:
             lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
         except OSError as exc:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Cannot read file: {exc}",
-                success=False,
-                error=str(exc),
-            )
+            return self._error_result(call, f"Cannot read file: {exc}", str(exc))
 
         # Apply line range
         start = call.arguments.get("start_line", 1)
@@ -126,13 +100,7 @@ class FsTools(ToolExecutor):
         if end < total_lines:
             output += f"\n... [file has {total_lines} total lines, showing {start}-{end}]"
 
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── write_file ────────────────────────────────────────────
 
@@ -153,21 +121,9 @@ class FsTools(ToolExecutor):
             path.write_text(content, encoding="utf-8")
             line_count = content.count("\n") + 1
             output = f"Wrote {line_count} lines to {path}"
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=output,
-                success=True,
-                token_count=count_tokens(output),
-            )
+            return self._success_result(call, output)
         except OSError as exc:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Cannot write file: {exc}",
-                success=False,
-                error=str(exc),
-            )
+            return self._error_result(call, f"Cannot write file: {exc}", str(exc))
 
     # ── edit_file ─────────────────────────────────────────────
 
@@ -183,37 +139,19 @@ class FsTools(ToolExecutor):
             return self._path_error(call)
 
         if not path.exists():
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"File not found: {path}",
-                success=False,
-                error="file_not_found",
-            )
+            return self._error_result(call, f"File not found: {path}", "file_not_found")
 
         search = call.arguments.get("search", "")
         replace = call.arguments.get("replace", "")
         use_regex = call.arguments.get("regex", False)
 
         if not search:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Error: search string is empty",
-                success=False,
-                error="empty_search",
-            )
+            return self._error_result(call, "Error: search string is empty", "empty_search")
 
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Cannot read file: {exc}",
-                success=False,
-                error=str(exc),
-            )
+            return self._error_result(call, f"Cannot read file: {exc}", str(exc))
 
         # Perform the search/replace
         if use_regex:
@@ -223,34 +161,24 @@ class FsTools(ToolExecutor):
             matches = [m for m in re.finditer(re.escape(search), content)]
 
         if not matches:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Search string not found in {path}",
-                success=False,
-                error="search_not_found",
+            return self._error_result(
+                call, f"Search string not found in {path}", "search_not_found"
             )
 
         if len(matches) > 1:
-            # Show the first 3 match locations to help the agent
             locations = []
             for m in matches[:3]:
                 line_num = content[: m.start()].count("\n") + 1
                 locations.append(f"  Line {line_num}")
             locations_str = "\n".join(locations)
             extra = f"\n  ... and {len(matches) - 3} more" if len(matches) > 3 else ""
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=(
-                    f"Search string found {len(matches)} times in {path} — "
-                    f"it must be unique.\n"
-                    f"Matches at:\n{locations_str}{extra}\n"
-                    f"Please provide a more specific search string."
-                ),
-                success=False,
-                error="multiple_matches",
+            output = (
+                f"Search string found {len(matches)} times in {path} — "
+                f"it must be unique.\n"
+                f"Matches at:\n{locations_str}{extra}\n"
+                f"Please provide a more specific search string."
             )
+            return self._error_result(call, output, "multiple_matches")
 
         # Exactly one match — perform the replacement
         if use_regex:
@@ -261,25 +189,12 @@ class FsTools(ToolExecutor):
         try:
             path.write_text(new_content, encoding="utf-8")
         except OSError as exc:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Cannot write file: {exc}",
-                success=False,
-                error=str(exc),
-            )
+            return self._error_result(call, f"Cannot write file: {exc}", str(exc))
 
-        # Calculate the line numbers of the change
         change_line = content[: matches[0].start()].count("\n") + 1
         output = f"Edited {path} (change at line {change_line})"
 
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── list_directory ────────────────────────────────────────
 
@@ -297,33 +212,15 @@ class FsTools(ToolExecutor):
             return self._path_error(call)
 
         if not path.exists():
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Directory not found: {path}",
-                success=False,
-                error="dir_not_found",
-            )
+            return self._error_result(call, f"Directory not found: {path}", "dir_not_found")
 
         if not path.is_dir():
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Path is a file, not a directory: {path}",
-                success=False,
-                error="is_file",
-            )
+            return self._error_result(call, f"Path is a file, not a directory: {path}", "is_file")
 
         try:
             entries = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
         except OSError as exc:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Cannot list directory: {exc}",
-                success=False,
-                error=str(exc),
-            )
+            return self._error_result(call, f"Cannot list directory: {exc}", str(exc))
 
         output_lines: list[str] = []
         # Respect common ignore patterns
@@ -379,13 +276,7 @@ class FsTools(ToolExecutor):
 
         output = f"Contents of {rel_path}:\n" + "\n".join(output_lines)
 
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── Safety helpers ────────────────────────────────────────
 
@@ -417,10 +308,8 @@ class FsTools(ToolExecutor):
 
     def _path_error(self, call: ToolCall) -> ToolResult:
         """Return a standard error for unsafe paths."""
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output="Error: path is empty or contains '..' (path traversal rejected)",
-            success=False,
-            error="unsafe_path",
+        return self._error_result(
+            call,
+            "Error: path is empty or contains '..' (path traversal rejected)",
+            "unsafe_path",
         )

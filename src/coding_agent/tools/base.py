@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 
 from coding_agent.config import AppConfig
+from coding_agent.llm.base import count_tokens
 from coding_agent.types import ToolCall, ToolParameter, ToolResult, ToolSchema
 
 logger = logging.getLogger(__name__)
@@ -27,25 +29,64 @@ class ToolExecutor(ABC):
     Abstract base for tool executors.
 
     Each tool type (fs, search, web, git) implements this
-    interface.  The registry dispatches calls to the right executor.
+    interface.  Subclasses provide _dispatch() to map tool names
+    to handler methods, and schemas() for the LLM function-calling.
     """
 
     @abstractmethod
+    def _dispatch(self) -> dict[str, Callable[[ToolCall], Awaitable[ToolResult]]]:
+        """
+        Map tool names to async handler methods.
+
+        Returned dict is used by `execute()` to dispatch calls.
+        """
+        raise NotImplementedError("Subclasses must implement _dispatch")
+
     async def execute(self, call: ToolCall) -> ToolResult:
         """
-        Execute a tool call and return the result.
+        Execute a tool call by dispatching to the right handler.
 
-        Implementations must:
-          - Validate arguments
-          - Execute the operation (with timeout)
-          - Return a ToolResult with output text
+        Handles unknown tools and unexpected exceptions centrally.
         """
-        raise NotImplementedError("Subclasses must implement execute")
+        handler = self._dispatch().get(call.name)
+        if handler is None:
+            return self._error_result(
+                call,
+                f"Unknown tool: {call.name}",
+                f"unknown_tool:{call.name}",
+            )
+        try:
+            return await handler(call)
+        except Exception as exc:
+            logger.exception("Tool %s handler failed", call.name)
+            return self._error_result(call, f"Execution error: {exc}", str(exc))
 
     @abstractmethod
     def schemas(self) -> list[ToolSchema]:
         """Return the tool schemas this executor provides."""
         raise NotImplementedError("Subclasses must implement schemas")
+
+    @staticmethod
+    def _success_result(call: ToolCall, output: str) -> ToolResult:
+        """Build a success ToolResult with token count."""
+        return ToolResult(
+            tool_call_id=call.id,
+            tool_name=call.name,
+            output=output,
+            success=True,
+            token_count=count_tokens(output),
+        )
+
+    @staticmethod
+    def _error_result(call: ToolCall, output: str, error: str) -> ToolResult:
+        """Build a failure ToolResult."""
+        return ToolResult(
+            tool_call_id=call.id,
+            tool_name=call.name,
+            output=output,
+            success=False,
+            error=error,
+        )
 
 
 # ──────────────────────────────────────────────────────────────

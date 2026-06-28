@@ -26,12 +26,7 @@ import logging
 import time
 from typing import Any
 
-from coding_agent.agent.planner import (
-    FlatPlanner,
-    HierarchicalPlanner,
-    Planner,
-    TreeOfThoughtPlanner,
-)
+from coding_agent.agent.planner import HierarchicalPlanner, Planner
 from coding_agent.agent.verifier import Verifier
 from coding_agent.config import AppConfig
 from coding_agent.context.budget import TokenBudget
@@ -165,13 +160,12 @@ class AgentCore:
             max_fraction_per_step=cfg.budget.max_fraction_per_step,
         )
 
-        # Planner
         if cfg.agent.planner_type == "hierarchical":
             self._planner = HierarchicalPlanner(llm=self.llm, config=cfg)
         elif cfg.agent.planner_type == "tree_of_thought":
-            self._planner = TreeOfThoughtPlanner(llm=self.llm, config=cfg)
+            self._planner = Planner(llm=self.llm, config=cfg, strategy="tree_of_thought")
         else:
-            self._planner = FlatPlanner(llm=self.llm, config=cfg)
+            self._planner = Planner(llm=self.llm, config=cfg, strategy="flat")
 
         # Verifier
         self._verifier = Verifier(config=cfg)

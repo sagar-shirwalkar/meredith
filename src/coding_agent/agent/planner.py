@@ -1,11 +1,10 @@
 """
 Strategic planner: decomposes a task into ordered subtasks.
 
-Two implementations:
-  - TreeOfThoughtPlanner: Evaluates multiple decomposition strategies
-    before committing (for large models with spare reasoning capacity).
-  - FlatPlanner: Simple list decomposition in a single LLM call
-    (for local models that need simpler prompts).
+A single Planner class parameterized by strategy ("flat" or
+"tree_of_thought" for single-pass vs multi-evaluation) handles all
+non-hierarchical decomposition.  The old FlatPlanner and
+TreeOfThoughtPlanner class names are kept as backward-compat aliases.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from coding_agent.config import AppConfig
@@ -90,18 +89,65 @@ _TOT_REPLAN_PROMPT = (
 
 
 # ──────────────────────────────────────────────────────────────
-# Abstract planner
+# Strategy registry
 # ──────────────────────────────────────────────────────────────
 
 
-class Planner(ABC):
-    """Base class for task planners."""
+@dataclass
+class _PlanningStrategy:
+    """Configuration bundle for a planning strategy."""
 
-    def __init__(self, llm: LLMClient, config: AppConfig) -> None:
+    plan_prompt: str
+    replan_prompt: str
+    plan_temperature: float = 0.3
+    replan_temperature: float = 0.4
+    plan_max_tokens: int = 1024
+    replan_max_tokens: int = 1024
+
+
+_STRATEGIES: dict[str, _PlanningStrategy] = {
+    "flat": _PlanningStrategy(
+        plan_prompt=_FLAT_PLANNER_PROMPT,
+        replan_prompt=_REPLAN_PROMPT,
+    ),
+    "tree_of_thought": _PlanningStrategy(
+        plan_prompt=_TOT_DECOMPOSE_PROMPT,
+        replan_prompt=_TOT_REPLAN_PROMPT,
+        plan_temperature=0.4,
+        replan_temperature=0.5,
+        plan_max_tokens=2048,
+        replan_max_tokens=2048,
+    ),
+}
+
+
+# ──────────────────────────────────────────────────────────────
+# Planner
+# ──────────────────────────────────────────────────────────────
+
+
+class Planner:
+    """
+    Concrete planner that decomposes a task into a Plan of SubTasks.
+
+    Two built-in strategies:
+      "flat" — simple single-pass decomposition (local models).
+      "tree_of_thought" — evaluates multiple decomposition strategies
+      in one call (large models with spare reasoning capacity).
+    """
+
+    def __init__(
+        self, llm: LLMClient, config: AppConfig, strategy: str = "flat"
+    ) -> None:
         self.llm = llm
         self.config = config
+        if strategy not in _STRATEGIES:
+            msg = f"Unknown planner strategy {strategy!r}. Choose from {list(_STRATEGIES)}"
+            raise ValueError(msg)
+        self._strategy = _STRATEGIES[strategy]
 
-    @abstractmethod
+    # ── Planning ──────────────────────────────────────────────
+
     async def plan(self, task: str, context_summary: str) -> Plan:
         """
         Decompose *task* into a Plan of SubTasks.
@@ -113,9 +159,18 @@ class Planner(ABC):
         Returns:
             A Plan with ordered SubTasks and dependency edges.
         """
-        raise NotImplementedError("Subclasses must implement plan")
+        s = self._strategy
+        prompt = s.plan_prompt.format(task=task, context=context_summary)
+        messages = [Message(role=Role.USER, content=prompt)]
 
-    @abstractmethod
+        response = await self.llm.chat(
+            messages=messages,
+            temperature=s.plan_temperature,
+            max_tokens=s.plan_max_tokens,
+        )
+
+        return self._parse_plan_response(response.content)
+
     async def replan(
         self,
         existing_plan: Plan,
@@ -126,10 +181,48 @@ class Planner(ABC):
         """
         Re-plan from a failed subtask onwards.
 
-        The planner may modify, add, or remove future subtasks.
-        Completed subtasks are preserved.
+        Completed subtasks are preserved; only pending/failed ones
+        may change.
         """
-        raise NotImplementedError("Subclasses must implement replan")
+        s = self._strategy
+        completed = [st for st in existing_plan.subtasks if st.status == TaskStatus.COMPLETED]
+        pending = [st for st in existing_plan.subtasks if st.status != TaskStatus.COMPLETED]
+
+        prompt = s.replan_prompt.format(
+            failed_id=failed_subtask_id,
+            reason=reason,
+            completed=self._format_subtasks(completed),
+            pending=self._format_subtasks(pending),
+            context=context_summary,
+        )
+
+        messages = [Message(role=Role.USER, content=prompt)]
+        response = await self.llm.chat(
+            messages=messages,
+            temperature=s.replan_temperature,
+            max_tokens=s.replan_max_tokens,
+        )
+
+        new_partial = self._parse_plan_response(response.content)
+        return self._merge_replan_results(existing_plan, completed, new_partial)
+
+    @staticmethod
+    def _merge_replan_results(
+        existing_plan: Plan,
+        completed: list[SubTask],
+        new_partial: Plan,
+    ) -> Plan:
+        """Merge completed subtasks with the LLM's partial plan and re-number."""
+        merged = completed + new_partial.subtasks
+        for i, st in enumerate(merged):
+            st.id = i + 1
+        for i, st in enumerate(merged):
+            if st.status != TaskStatus.COMPLETED:
+                st.status = TaskStatus.IN_PROGRESS
+                existing_plan.current_subtask_idx = i
+                break
+        existing_plan.subtasks = merged
+        return existing_plan
 
     # ── Shared helpers ────────────────────────────────────────
 
@@ -141,11 +234,9 @@ class Planner(ABC):
         dependencies.  Falls back to a simpler line-by-line parse
         if JSON extraction fails.
         """
-        # Try to extract JSON from a fenced code block
         json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
         json_str = json_match.group(1) if json_match else text.strip()
 
-        # If the LLM used a "best_plan" key (tree-of-thought), unwrap it
         try:
             data = json.loads(json_str)
             if isinstance(data, dict) and "best_plan" in data:
@@ -170,7 +261,6 @@ class Planner(ABC):
                     )
                 )
 
-        # Parse dependencies: {subtask_id: [dep_ids...]}
         deps: dict[int, list[int]] = {}
         for k, v in data.get("dependencies", {}).items():
             deps[int(k)] = v if isinstance(v, list) else [v]
@@ -181,7 +271,6 @@ class Planner(ABC):
             dependencies=deps,
         )
 
-        # Set first subtask to in_progress
         if subtasks:
             subtasks[0].status = TaskStatus.IN_PROGRESS
             plan.current_subtask_idx = 0
@@ -210,7 +299,6 @@ class Planner(ABC):
                 )
 
         if not subtasks:
-            # Could not parse at all; make the whole task one subtask
             subtasks.append(SubTask(id=1, description=text[:200]))
 
         plan = Plan(goal=text[:100], subtasks=subtasks)
@@ -228,141 +316,16 @@ class Planner(ABC):
         return "\n".join(lines)
 
 
-# ──────────────────────────────────────────────────────────────
-# Flat planner (simple, for local models)
-# ──────────────────────────────────────────────────────────────
+# ── Backward-compat aliases ───────────────────────────────────
 
 
 class FlatPlanner(Planner):
-    """
-    Simple single-pass planner.
-
-    Makes one LLM call to decompose the task.  Best for local models
-    where we want minimal prompt complexity.
-    """
-
-    async def plan(self, task: str, context_summary: str) -> Plan:
-        prompt = _FLAT_PLANNER_PROMPT.format(task=task, context=context_summary)
-        messages = [Message(role=Role.USER, content=prompt)]
-
-        response = await self.llm.chat(
-            messages=messages,
-            temperature=0.3,
-            max_tokens=1024,
-        )
-
-        return self._parse_plan_response(response.content)
-
-    async def replan(
-        self,
-        existing_plan: Plan,
-        failed_subtask_id: int,
-        reason: str,
-        context_summary: str,
-    ) -> Plan:
-        """
-        Replan by asking the LLM to revise from the failed subtask.
-
-        Completed subtasks are preserved; only pending/failed ones
-        may change.
-        """
-        completed = [st for st in existing_plan.subtasks if st.status == TaskStatus.COMPLETED]
-        pending = [st for st in existing_plan.subtasks if st.status != TaskStatus.COMPLETED]
-
-        prompt = _REPLAN_PROMPT.format(
-            failed_id=failed_subtask_id,
-            reason=reason,
-            completed=self._format_subtasks(completed),
-            pending=self._format_subtasks(pending),
-            context=context_summary,
-        )
-
-        messages = [Message(role=Role.USER, content=prompt)]
-        response = await self.llm.chat(messages=messages, temperature=0.4, max_tokens=1024)
-
-        new_partial = self._parse_plan_response(response.content)
-
-        # Merge: keep completed, replace the rest
-        merged_subtasks = completed + new_partial.subtasks
-
-        # Re-number IDs
-        for i, st in enumerate(merged_subtasks):
-            st.id = i + 1
-
-        # First non-completed subtask becomes current
-        for i, st in enumerate(merged_subtasks):
-            if st.status != TaskStatus.COMPLETED:
-                st.status = TaskStatus.IN_PROGRESS
-                existing_plan.current_subtask_idx = i
-                break
-
-        existing_plan.subtasks = merged_subtasks
-        return existing_plan
-
-
-# ──────────────────────────────────────────────────────────────
-# Tree-of-thought planner (for large models)
-# ──────────────────────────────────────────────────────────────
+    """Simple single-pass planner. Backward-compat alias."""
 
 
 class TreeOfThoughtPlanner(Planner):
-    """
-    Advanced planner that evaluates multiple strategies before committing.
+    """Tree-of-thought planner. Backward-compat alias."""
 
-    Uses more tokens but produces higher-quality plans for complex tasks.
-    Only suitable for large models with sufficient reasoning capacity.
-    """
-
-    async def plan(self, task: str, context_summary: str) -> Plan:
-        prompt = _TOT_DECOMPOSE_PROMPT.format(task=task, context=context_summary)
-        messages = [Message(role=Role.USER, content=prompt)]
-
-        response = await self.llm.chat(
-            messages=messages,
-            temperature=0.4,
-            max_tokens=2048,
-        )
-
-        return self._parse_plan_response(response.content)
-
-    async def replan(
-        self,
-        existing_plan: Plan,
-        failed_subtask_id: int,
-        reason: str,
-        context_summary: str,
-    ) -> Plan:
-        """
-        Replan using tree-of-thought: generate multiple alternative
-        approaches to the failed subtask and pick the best one.
-        """
-        completed = [st for st in existing_plan.subtasks if st.status == TaskStatus.COMPLETED]
-
-        prompt = _TOT_REPLAN_PROMPT.format(
-            failed_id=failed_subtask_id,
-            reason=reason,
-            completed=self._format_subtasks(completed),
-            context=context_summary,
-        )
-
-        messages = [Message(role=Role.USER, content=prompt)]
-        response = await self.llm.chat(messages=messages, temperature=0.5, max_tokens=2048)
-
-        new_partial = self._parse_plan_response(response.content)
-
-        # Merge
-        merged_subtasks = completed + new_partial.subtasks
-        for i, st in enumerate(merged_subtasks):
-            st.id = i + 1
-
-        for i, st in enumerate(merged_subtasks):
-            if st.status != TaskStatus.COMPLETED:
-                st.status = TaskStatus.IN_PROGRESS
-                existing_plan.current_subtask_idx = i
-                break
-
-        existing_plan.subtasks = merged_subtasks
-        return existing_plan
 
 
 # ──────────────────────────────────────────────────────────────

@@ -12,11 +12,11 @@ import asyncio
 import logging
 import re
 import shutil
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from coding_agent.config import AppConfig
-from coding_agent.llm.base import count_tokens
 from coding_agent.tools.base import (
     SCHEMA_FIND_SYMBOLS,
     SCHEMA_GET_DIAGNOSTICS,
@@ -60,22 +60,12 @@ class SearchTools(ToolExecutor):
 
     # ── Dispatch ──────────────────────────────────────────────
 
-    async def execute(self, call: ToolCall) -> ToolResult:
-        dispatch = {
+    def _dispatch(self) -> dict[str, Callable[[ToolCall], Awaitable[ToolResult]]]:
+        return {
             "search_code": self._search_code,
             "find_symbols": self._find_symbols,
             "get_diagnostics": self._get_diagnostics,
         }
-        handler = dispatch.get(call.name)
-        if handler is None:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Unknown search tool: {call.name}",
-                success=False,
-                error=f"unknown_search_tool: {call.name}",
-            )
-        return await handler(call)
 
     # ── search_code ───────────────────────────────────────────
 
@@ -88,13 +78,7 @@ class SearchTools(ToolExecutor):
         """
         pattern = call.arguments.get("pattern", "")
         if not pattern:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Error: search pattern is empty",
-                success=False,
-                error="empty_pattern",
-            )
+            return self._error_result(call, "Error: search pattern is empty", "empty_pattern")
 
         search_path = call.arguments.get("path", ".")
         file_pattern = call.arguments.get("file_pattern")
@@ -103,12 +87,10 @@ class SearchTools(ToolExecutor):
         context_lines = self.config.tools.search.context_lines
 
         if self._backend == "none":
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Error: neither ripgrep nor grep is available on this system",
-                success=False,
-                error="no_search_backend",
+            return self._error_result(
+                call,
+                "Error: neither ripgrep nor grep is available on this system",
+                "no_search_backend",
             )
 
         try:
@@ -121,32 +103,14 @@ class SearchTools(ToolExecutor):
                     pattern, search_path, file_pattern, use_regex, max_results
                 )
         except TimeoutError:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Search timed out after 15 seconds",
-                success=False,
-                error="timeout",
-            )
+            return self._error_result(call, "Search timed out after 15 seconds", "timeout")
         except Exception as exc:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Search error: {exc}",
-                success=False,
-                error=str(exc),
-            )
+            return self._error_result(call, f"Search error: {exc}", str(exc))
 
         if not output.strip():
             output = f"No matches found for pattern: {pattern}"
 
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     async def _ripgrep_search(
         self,
@@ -290,13 +254,7 @@ class SearchTools(ToolExecutor):
         """
         query = call.arguments.get("query", "")
         if not query:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Error: query is empty",
-                success=False,
-                error="empty_query",
-            )
+            return self._error_result(call, "Error: query is empty", "empty_query")
 
         search_path = call.arguments.get("path", ".")
 
@@ -320,14 +278,9 @@ class SearchTools(ToolExecutor):
 
         combined = "|".join(symbol_patterns)
 
-        # Use ripgrep for the search
         if self._backend == "none":
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Error: no search backend available",
-                success=False,
-                error="no_search_backend",
+            return self._error_result(
+                call, "Error: no search backend available", "no_search_backend"
             )
 
         try:
@@ -340,24 +293,12 @@ class SearchTools(ToolExecutor):
                     combined, search_path, None, use_regex=True, max_results=15
                 )
         except Exception as exc:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"Symbol search error: {exc}",
-                success=False,
-                error=str(exc),
-            )
+            return self._error_result(call, f"Symbol search error: {exc}", str(exc))
 
         if not output.strip():
             output = f"No symbol definitions found for: {query}"
 
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=output,
-            success=True,
-            token_count=count_tokens(output),
-        )
+        return self._success_result(call, output)
 
     # ── get_diagnostics ───────────────────────────────────────
 
@@ -369,24 +310,11 @@ class SearchTools(ToolExecutor):
         """
         path_str = call.arguments.get("path", "")
         if not path_str:
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output="Error: path is empty",
-                success=False,
-                error="empty_path",
-            )
+            return self._error_result(call, "Error: path is empty", "empty_path")
 
-        # Resolve path
         path = self.workdir / path_str
         if not path.exists():
-            return ToolResult(
-                tool_call_id=call.id,
-                tool_name=call.name,
-                output=f"File not found: {path_str}",
-                success=False,
-                error="file_not_found",
-            )
+            return self._error_result(call, f"File not found: {path_str}", "file_not_found")
 
         ext = path_str.rsplit(".", 1)[-1] if "." in path_str else ""
         diag_output = ""
@@ -405,13 +333,7 @@ class SearchTools(ToolExecutor):
         if not diag_output.strip():
             diag_output = f"No issues found in {path_str}"
 
-        return ToolResult(
-            tool_call_id=call.id,
-            tool_name=call.name,
-            output=diag_output,
-            success=True,
-            token_count=count_tokens(diag_output),
-        )
+        return self._success_result(call, diag_output)
 
     async def _diag_python(self, path: Path) -> str:
         """Run Python diagnostics (ruff or pyflakes)."""
