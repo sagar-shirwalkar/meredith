@@ -2,6 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.13-fbad2b?style=for-the-badge&label=Python&labelColor=gray&logo=python&logoColor=blue)](https://python.org)
 [![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/meredith/v0.2.7?style=for-the-badge)](https://github.com/sagar-shirwalkar/meredith/actions)
+[![OSSF-Scorecard Score](https://img.shields.io/ossf-scorecard/github.com/sagar-shirwalkar/meredith?style=for-the-badge&label=OSSF%20Scorecard)](https://securityscorecards.dev/viewer/?uri=github.com/sagar-shirwalkar/meredith)
 [![AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](LICENSE)
 
 <p align="center">
@@ -9,7 +10,6 @@
     <img src="assets/meredith.svg" width="400" height="400" alt="Meredith">
   </picture>
 </p>
-
 
 Meredith is an AI coding agent purpose-built for software engineering workflows. It operates a **ReAct loop** (Reason → Act → Observe) with strategic planning, RAG-augmented code understanding, and ACP (Agent Client Protocol) integration for native editor support.
 
