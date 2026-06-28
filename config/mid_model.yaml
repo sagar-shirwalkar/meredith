@@ -4,9 +4,9 @@
 # ──────────────────────────────────────────────────────────────
 
 llm:
-  provider: "remote"
-  model: "gpt-4o-mini"
-  api_base: "https://api.openai.com/v1"
+  model: "${MEREDITH_LLM_MODEL}"
+  provider: "${MEREDITH_LLM_PROVIDER}"
+  api_base: "${MEREDITH_LLM_API_BASE}"
   key_var: "LLM_API_KEY"
   temperature: 0.2
   max_response_tokens: 3072
@@ -34,8 +34,6 @@ tools:
     learned_preferences: true
   fs:
     max_read_lines: 80
-  search:
-    max_results: 20
 
 rag:
   retrieval:

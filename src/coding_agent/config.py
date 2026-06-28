@@ -1,20 +1,42 @@
-"""
-Configuration loader with layered YAML merging.
-
-Resolution order (later wins):
-    base.yaml  →  model-specific YAML  →  CLI overrides
-
-All config values are exposed as a frozen dataclass tree for
-type-safe access throughout the codebase.
-"""
-
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+"""
+Configuration loader with layered YAML merging.
+
+Resolution order (later wins):
+    base.yaml  →
+    model-specific YAML  →
+    CLI overrides  →
+    Environment variables (${VAR} placeholders)
+
+All config values are exposed as a frozen dataclass tree for
+type-safe access throughout the codebase.
+"""
+
+
+def _substitute_env_vars(data: Any) -> Any:
+    """Recursively substitute ${ENV_VAR} placeholders with environment variable values."""
+    if isinstance(data, str):
+
+        def replace(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, match.group(0))
+
+        return re.sub(r"\${([^}]+)}", replace, data)
+    elif isinstance(data, dict):
+        return {k: _substitute_env_vars(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [_substitute_env_vars(item) for item in data]
+    return data
+
 
 # ──────────────────────────────────────────────────────────────
 # Configuration dataclasses — mirror the YAML structure
@@ -256,7 +278,9 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return {}
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    return data if isinstance(data, dict) else {}
+    data = data if isinstance(data, dict) else {}
+    # Substitute environment variable placeholders
+    return _substitute_env_vars(data)
 
 
 def _dict_to_zone_configs(raw: dict[str, Any]) -> dict[str, ZoneConfig]:
@@ -286,6 +310,20 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
     memory_raw = raw.get("memory", {})
     skills_raw = raw.get("skills", {})
     logging_raw = raw.get("logging", {})
+
+    # Check for environment variable overrides for LLM settings
+    # These allow users to customize settings without modifying committed files
+    env_model = os.environ.get("MEREDITH_LLM_MODEL")
+    if env_model:
+        llm_raw["model"] = env_model
+
+    env_api_base = os.environ.get("MEREDITH_LLM_API_BASE")
+    if env_api_base:
+        llm_raw["api_base"] = env_api_base
+
+    env_provider = os.environ.get("MEREDITH_LLM_PROVIDER")
+    if env_provider:
+        llm_raw["provider"] = env_provider
 
     # Build nested objects bottom-up
     step_alloc = StepAllocConfig(**budget_raw.get("step_allocations", {}))

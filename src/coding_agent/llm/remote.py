@@ -52,8 +52,8 @@ class RemoteLLMClient(LLMClient):
 
     def __init__(
         self,
-        model: str = "gpt-4o",
-        api_base: str = "https://api.openai.com/v1",
+        model: str = "opencode/big-pickle",
+        api_base: str = "https://opencode.ai/zen/v1/chat/completions",
         key_var: str = "LLM_API_KEY",
         temperature: float = 0.2,
         max_tokens: int = 4096,

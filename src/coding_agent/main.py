@@ -122,23 +122,22 @@ async def run_agent(config: AppConfig, task: str) -> None:
     llm = create_llm_client(config)
 
     try:
-        agent = AgentCore(config=config, llm=llm, task=task)
+        async with AgentCore(config=config, llm=llm, task=task) as agent:
+            logger.info(
+                "Starting agent with profile=%s model=%s task=%r",
+                config.llm.provider,
+                config.llm.model,
+                task[:80],
+            )
 
-        logger.info(
-            "Starting agent with profile=%s model=%s task=%r",
-            config.llm.provider,
-            config.llm.model,
-            task[:80],
-        )
+            result = await agent.run()
 
-        result = await agent.run()
-
-        if result:
-            logger.info("Agent completed successfully")
-            print("\n✅ Agent finished.\n")
-        else:
-            logger.warning("Agent did not complete the task")
-            print("\n⚠️  Agent could not complete the task.\n")
+            if result:
+                logger.info("Agent completed successfully")
+                print("\n✅ Agent finished.\n")
+            else:
+                logger.warning("Agent did not complete the task")
+                print("\n⚠️  Agent could not complete the task.\n")
 
     finally:
         await llm.close()
