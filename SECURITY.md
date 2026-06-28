@@ -1,4 +1,4 @@
-# Security Policy
+# Policy
 
 ## Supported Versions
 
@@ -6,9 +6,9 @@ The following Meredith versions are currently supported:
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 0.2.8   | :white_check_mark: |
 | 0.2.7   | :white_check_mark: |
-| 0.2.6   | :x:                |
-| 0.2.5   | :white_check_mark: |
+| 0.2.6   | :white_check_mark: |
 | < 0.2.5 | :x:                |
 
 ## Reporting a Vulnerability
