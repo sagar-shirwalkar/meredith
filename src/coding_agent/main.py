@@ -82,7 +82,14 @@ def create_llm_client(config: AppConfig) -> LLMClient:
             max_tokens=llm_cfg.max_response_tokens,
         )
     else:
-        raise ValueError(f"Unknown LLM provider: {llm_cfg.provider!r}")
+        valid = ["remote", "local"]
+        raise ValueError(
+            f"Unknown LLM provider: {llm_cfg.provider!r}. "
+            f"Valid options: {valid}. "
+            f"Use 'remote' for any OpenAI-compatible API "
+            f"(OpenAI, Anthropic, Together, Opencode, etc.) "
+            f"or 'local' for Ollama/MLX."
+        )
 
 
 # ──────────────────────────────────────────────────────────────
@@ -135,6 +142,9 @@ async def run_agent(config: AppConfig, task: str) -> None:
             if result:
                 logger.info("Agent completed successfully")
                 print("\n✅ Agent finished.\n")
+                response = agent.final_response
+                if response:
+                    print(response)
             else:
                 logger.warning("Agent did not complete the task")
                 print("\n⚠️  Agent could not complete the task.\n")

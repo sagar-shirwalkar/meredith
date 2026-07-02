@@ -5,7 +5,7 @@
 
 llm:
   model: "${MEREDITH_LLM_MODEL}"
-  provider: "${MEREDITH_LLM_PROVIDER}"
+  provider: "${MEREDITH_LLM_PROVIDER}" # Valid: "remote" (any OpenAI-compatible API) or "local" (Ollama/MLX)
   api_base: "${MEREDITH_LLM_API_BASE}"
   key_var: "LLM_API_KEY"
   temperature: 0.2

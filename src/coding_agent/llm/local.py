@@ -332,8 +332,13 @@ class LocalLLMClient(LLMClient):
 
         tool_call_accum: dict[int, dict[str, Any]] = {}
 
-        async with self._http.stream("POST", f"{self.ollama_base}/api/chat", json=payload) as resp:
-            resp.raise_for_status()
+        # Build and send a streaming request manually (not via async with)
+        # to avoid GeneratorExit / aclose() race during shutdown.
+        req = self._http.build_request("POST", f"{self.ollama_base}/api/chat", json=payload)
+        resp = await self._http.send(req, stream=True)
+        resp.raise_for_status()
+
+        try:
             async for line in resp.aiter_lines():
                 if not line.strip():
                     continue
@@ -382,6 +387,8 @@ class LocalLLMClient(LLMClient):
                         )
                     yield StreamChunk(event=StreamEvent.DONE)
                     return
+        finally:
+            await resp.aclose()
 
     def _ollama_payload(
         self,

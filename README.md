@@ -32,6 +32,8 @@ Meredith is an AI coding agent for software engineering workflows. It operates a
 - **Multi-Stage Planning** — Hierarchical planner with strategic/tactical layers and phase lifecycle (active → retry → recovery → aborted).
 - **TurboQuant** — MLX KV cache + weight quantization for Apple Silicon (configurable bits, sink tokens, layer-adaptive).
 - **Skills** — Modular `SKILL.md` files that teach the agent new capabilities on the fly.
+- **14 Built-in Tools** — `read_file`, `edit_file`, `write_file`, `list_directory`, `search_code`, `find_symbols`, `run_command`, `get_diagnostics`, `web_search`, `web_fetch`, `git_status`, `git_diff`, `git_log`, `git_commit`. All dispatch through a unified registry with pre/post-execution hooks.
+- **Tool-Calling Test Harness** — `scripts/test_tool_calling.py` validates which tools a model can actually invoke. Run it against any Ollama model to check compatibility before switching configs.
 - **Triple Profile** — Optimised configurations for large API models (200K), mid-range (64K), and local 7-13B (32K).
 
 ---
@@ -103,6 +105,13 @@ uv run meredith --profile local_model "Explain the authentication flow"     # Lo
 uv run meredith -v "Refactor the database layer"                            # Verbose logging
 ```
 
+**Tool compatibility test:** Before switching to a new local model, verify its tool-calling ability:
+
+```bash
+uv run python scripts/test_tool_calling.py --model qwen3.5:9b-mlx
+uv run python scripts/test_tool_calling.py --list-models                     # See available models
+```
+
 ### Start the ACP server (for editor integration)
 
 ```bash
@@ -113,13 +122,97 @@ Point your editor at that command. See [Publishing to the ACP Registry](#publish
 
 ---
 
+## Local Model Guide
+
+Meredith supports local models via **[Ollama](https://ollama.com)** (primary) or **MLX** (Apple Silicon fallback). This section covers model selection, tool-calling compatibility, and configuration.
+
+### Model requirements
+
+For the agent to use all 14 built-in tools, the model must support **function/tool calling** (`tool_calls` in the Ollama chat response). Not all models do:
+
+| Capability | Required | Notes |
+|---|---|---|
+| Tool calling | ✅ Required | Model must invoke tools by name with correct parameters |
+| Instruction following | ✅ Required | Must follow system prompts about file paths, code style |
+| Tool calling format | Ollama native | Uses Ollama's `/api/chat` `tool_calls` format |
+
+Small models (<1B parameters) generally don't support tool calling. Models with 7B+ parameters typically do, though reliability varies.
+
+### Verified tool-compatible models
+
+The following models have been tested with `scripts/test_tool_calling.py`:
+
+| Model | Tools Passed | Notes |
+|---|---|---|
+| `qwen3.5:9b-mlx` | **14/14** ✅ | Recommended for general use — strong tool calling |
+| `huihui_ai/granite4.1-abliterated:8b-q4_K` | Likely 14/14 | 8B class, expected to pass all tools |
+| `gemma3:270m-it-q8_0` | ❌ 0/14 | Too small — does not support tool calling at all |
+
+### Testing a model before using it
+
+```bash
+# List available models
+uv run python scripts/test_tool_calling.py --list-models
+
+# Test a specific model (sends one prompt per tool, ~30s total)
+uv run python scripts/test_tool_calling.py --model qwen3.5:9b-mlx
+
+# Custom Ollama host
+uv run python scripts/test_tool_calling.py --model foo --ollama-base http://192.168.1.42:11434
+```
+
+The harness checks each tool independently by sending a targeted prompt with that tool's schema and verifying the model selects the correct tool name with the required parameters. It reports pass/fail per tool and exits with the failure count (0 = all pass).
+
+### Choosing a model
+
+1. **Run the test harness** against any candidate model.
+2. **Check the pass rate** — models passing 12/14+ tools work well for general coding tasks.
+3. **Update `config/local_model.yaml`** with the model name.
+4. **Run the agent** normally with `--profile local_model`.
+
+### Configuration tips
+
+The `local_model` profile (`config/local_model.yaml`) is pre-tuned for local models:
+
+```yaml
+llm:
+  provider: "local"
+  model: "qwen3.5:9b-mlx"          # Change this to your model
+  ollama_base: "http://localhost:11434"
+  temperature: 0.1                   # Lower temp for deterministic tool selection
+
+agent:
+  planner_type: "flat"              # Local models struggle with tree-of-thought
+  max_steps: 30
+
+tools:
+  router:
+    strategy: "rules_only"          # Don't ask LLM to select tools — use rules
+```
+
+Key points:
+- **`temperature: 0.1`** — Low temperature improves tool-calling reliability
+- **`planner_type: flat`** — Simpler planning avoids context overflow
+- **`router.strategy: rules_only`** — The agent still sends all tool schemas; the router controls *availability* by step count and task keywords, not LLM-based selection
+
+### Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| `400 Bad Request` on `/api/chat` | Model doesn't support tools | Run `scripts/test_tool_calling.py`; switch to a tool-capable model |
+| `404 Not Found` on `/api/chat` | Model not installed in Ollama | Run `ollama pull <model>` |
+| Repeated tool call failures | Model misformats parameters | Lower temperature to 0.0; test with the harness |
+| Agent returns no action immediately | Model answered without calling tools | Check if model can follow system instructions |
+
+---
+
 ## Configuration Profiles
 
 | Profile | Provider | Context | Router | Planner | RAG Depth | Max Steps | Use Case |
 |---|---|---|---|---|---|---|---|
 | `large_model` | Remote API (OpenAI-compatible) | 200K tokens | Hybrid (LLM + rules) | Tree-of-thought | Full 3-tier | 80 | Complex multi-file tasks |
 | `mid_model` | Remote API | 64K tokens | Hybrid (LLM + rules) | Flat | 2-tier (BM25 + dense) | 50 | Moderate tasks, constrained budget |
-| `local_model` | Ollama / MLX (7–13B) | 32K tokens | Rules only | Flat | BM25 only | 30 | Simple edits, offline use |
+| `local_model` | Ollama / MLX (7–13B) | 32K tokens | Rules only | Flat | BM25 only | 30 | Local coding tasks, offline use |
 
 **TurboQuant** (Apple Silicon only): set `turboquant.kv_bits`, `turboquant.weight_bits`, and `turboquant.sink_tokens` in `config/local_model.yaml` to reduce memory usage of local MLX models. Layer-adaptive quantization (`layer_adaptive: true`) assigns more bits to attention layers.
 
@@ -153,6 +246,7 @@ meredith/
 │   │   ├── router.py                 # LLM-driven + rule-based tool selection
 │   │   ├── fs.py                     # File read/edit/write/list
 │   │   ├── search.py                 # Code search (ripgrep)
+│   │   ├── shell.py                  # Shell command execution (asyncio subprocess)
 │   │   ├── web.py                    # Web search and fetch
 │   │   └── git.py                    # Git operations
 │   ├── rag/                          # Retrieval-Augmented Generation
@@ -174,6 +268,7 @@ meredith/
 │   └── acp/                          # Agent Client Protocol server
 │       └── server.py                 # ACP stdio server for editor integration
 ├── scripts/                          # Standalone utility scripts
+│   ├── test_tool_calling.py          # Validate model tool-calling compatibility
 │   └── compact_checkpoints.py        # Prune old / merge consecutive checkpoints
 ├── MEMORY.md                         # Cross-session memory architecture & compaction docs
 ├── CROSSWALK.md                      # Session bridge for cross-session continuity
@@ -184,7 +279,7 @@ meredith/
 │   ├── meredith-mono.svg             # Monochrome / print variant
 │   ├── meredith-small.svg            # Tight crop for app icon (512×512)
 │   └── logo-variants.md              # Variant specs and generation guide
-├── tests/                                 # Test suite (224+ tests covering >80% of core modules)
+├── tests/                                 # Test suite (264+ tests covering >80% of core modules)
 │   ├── __init__.py
 │   ├── conftest.py                       # Shared fixtures (config, types, streaming)
 │   ├── test_import.py                    # Package import smoke test
@@ -466,7 +561,7 @@ Requires a `PYPI_TOKEN` secret in your GitHub repository settings.
 ```bash
 make setup           # First time: install deps, hooks, and lint
 make lint            # Ruff check
-make test            # Pytest (all 224+ tests)
+make test            # Pytest (all 264+ tests)
 make check           # lint + typecheck + test (CI equivalent)
 make clean           # Remove caches and build artifacts
 ```

@@ -37,16 +37,16 @@ _FLAT_PLANNER_PROMPT = (
     "- Keep descriptions under 100 characters each\n"
     "- Return ONLY a JSON block, no other text\n\n"
     "Format:\n" + _BACKTICKS + "json\n"
-    "{\n"
+    "{{\n"
     '  "goal": "<one-line goal>",\n'
     '  "subtasks": [\n'
-    '    {"id": 1, "description": "...", "files": ["path/to/file"]},\n'
+    '    {{"id": 1, "description": "...", "files": ["path/to/file"]}},\n'
     "    ...\n"
     "  ],\n"
-    '  "dependencies": {\n'
+    '  "dependencies": {{\n'
     '    "3": [1, 2]\n'
-    "  }\n"
-    "}\n" + _BACKTICKS + "\n\n"
+    "  }}\n"
+    "}}\n" + _BACKTICKS + "\n\n"
     "Project context:\n{context}\n\n"
     "Task: {task}\n"
 )
@@ -136,9 +136,7 @@ class Planner:
       in one call (large models with spare reasoning capacity).
     """
 
-    def __init__(
-        self, llm: LLMClient, config: AppConfig, strategy: str = "flat"
-    ) -> None:
+    def __init__(self, llm: LLMClient, config: AppConfig, strategy: str = "flat") -> None:
         self.llm = llm
         self.config = config
         if strategy not in _STRATEGIES:
@@ -325,7 +323,6 @@ class FlatPlanner(Planner):
 
 class TreeOfThoughtPlanner(Planner):
     """Tree-of-thought planner. Backward-compat alias."""
-
 
 
 # ──────────────────────────────────────────────────────────────

@@ -123,6 +123,7 @@ class ToolRegistry:
         from coding_agent.tools.fs import FsTools
         from coding_agent.tools.git import GitTools
         from coding_agent.tools.search import SearchTools
+        from coding_agent.tools.shell import ShellTools
         from coding_agent.tools.web import WebTools
 
         executor_instances: list[ToolExecutor] = [
@@ -130,6 +131,7 @@ class ToolRegistry:
             SearchTools(self.config),
             WebTools(self.config),
             GitTools(self.config),
+            ShellTools(self.config),
         ]
 
         for executor in executor_instances:

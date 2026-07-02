@@ -422,6 +422,21 @@ class AgentCore:
         logger.warning("Reached max steps (%d)", max_steps)
         return False
 
+    # ── Final response ─────────────────────────────────────────
+
+    @property
+    def final_response(self) -> str:
+        """
+        The content of the last assistant message.
+
+        Returns an empty string if no assistant message has been
+        recorded yet.
+        """
+        for msg in reversed(self._messages):
+            if msg.role == Role.ASSISTANT:
+                return msg.content
+        return ""
+
     # ── Single step execution ─────────────────────────────────
 
     async def _execute_step(self) -> Step | None:

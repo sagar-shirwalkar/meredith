@@ -5,7 +5,7 @@
 
 llm:
   provider: "local"
-  model: "qwen3-coder:14b"
+  model: "qwen3.5:9b-mlx"
   ollama_base: "http://localhost:11434"
   mlx_model_path: null # Set to local MLX model dir if using MLX directly
   temperature: 0.1 # Lower temp — local models need more guidance
@@ -18,10 +18,10 @@ llm:
   # See .agents/skills/agentic-improvements/references/TURBOQUANT.md
   turboquant:
     enabled: false
-    kv_bits: 3              # 3-bit KV cache (K8/V3 mixed precision)
-    weight_bits: 4          # 4-bit weights
-    sink_tokens: 128        # First N tokens kept at full precision
-    layer_adaptive: true    # Apply different bit widths per layer
+    kv_bits: 3 # 3-bit KV cache (K8/V3 mixed precision)
+    weight_bits: 4 # 4-bit weights
+    sink_tokens: 128 # First N tokens kept at full precision
+    layer_adaptive: true # Apply different bit widths per layer
 
 agent:
   planner_type: "flat" # Local models struggle with tree-of-thought
