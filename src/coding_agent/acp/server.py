@@ -91,7 +91,7 @@ class CodingAgentServer(Agent):
             agent_info=Implementation(
                 name="meredith",
                 title="meredith",
-                version="0.3.2",
+                version="0.3.3",
             ),
         )
 
