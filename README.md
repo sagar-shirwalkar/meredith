@@ -406,10 +406,12 @@ Meredith supports three planner modes, selectable per config profile:
 | Planner | Strategy | When Used |
 |---|---|---|
 | **Flat** | Linear subtask decomposition | Simple edits, local models, budget-constrained runs |
-| **Tree-of-Thought** | Multi-branch exploration with scoring | Complex multi-file tasks via `large_model` |
-| **Hierarchical** | Two-phase (strategic plan → tactical phases) | Mid-budget runs where structure matters more than branching |
+| **Tree-of-Thought** | Multi-branch exploration with scoring | Complex multi-file tasks via `large_model` (current default) |
+| **Hierarchical** | Two-phase (strategic plan → tactical phases) | Available — set `planner_type: hierarchical` in your config profile |
 
 The hierarchical planner decomposes goals into phases with lifecycle tracking (`PENDING → ACTIVE → COMPLETED | FAILED → RETRY | ABORTED`). Phases that fail get automatic replan with failure context injected. The phase index persists to checkpoints, so interrupted sessions resume at the right phase.
+
+> **Note:** The hierarchical planner is fully implemented — strategic + tactical decomposition, per-phase replanning, phase lifecycle — but is not currently the default for any shipped config profile. Set `agent.planner_type: hierarchical` in your YAML profile to use it.
 
 ### Runtime Tiers
 
@@ -420,6 +422,8 @@ When context budget runs critically low, the agent degrades automatically rather
 3. **SMALL** at ≤5% budget — 32K effective context, flat planner, rules-only router, BM25-only RAG, minimal step budget
 
 Tier transitions inject a constraint message into the agent's system prompt so it adapts its behavior. The `_apply_tier()` method adjusts step budget, planner selection, RAG depth, and router strategy without touching the frozen config.
+
+> **Note:** Tier transitions are currently budget-only — driven by remaining context budget, not model-capability-aware. When non-tool graceful degradation fires (P1), the tier is correctly set to SMALL, giving the text-mode parser the right constraints. A model-capability-aware transition layer is future work.
 
 ### TurboQuant (Apple Silicon)
 
@@ -473,11 +477,12 @@ Each phase encapsulates its own flat plan of subtasks. When a phase fails mid-ex
 
 ### Near-term
 
-- **ACC stage 6 integration** — Wire async LLM summarization into the compaction pipeline (currently logs a warning with pass-through)
-- **Tests for new components** — Unit tests for compactor, embedder, graph retriever, meta-thinker, and three-tier cascade
-- **RAG cascade tuning** — Benchmark and set optimal confidence thresholds and RRF k values
-- **Dense retriever re-index** — Auto-detect and re-index embeddings for existing databases on startup
-- **Meta-Thinker telemetry** — Surface INTERRUPT/FALLBACK signals in logs and session summaries
+- **✅ P1 — Non-tool graceful degradation** — Implemented: `tools/text_mode_parser.py` with regex-based parser for 6 common tools (read, write, edit, search, list, run), wired into `_execute_step()` when model cannot use tool calling.
+- **🟡 P2 — Stage 5/6 rehydration wiring** (~15 lines) — `prepare_rehydration()` / `restore_rehydration()` exist with test coverage but are never called from the agent core. Silent data loss after deep compaction. See `CROSSWALK.md` for integration points.
+- **✅ P3 — Hierarchical planner enablement** — `config/large_model.yaml` now sets `planner_type: hierarchical`. Strategic/tactical 2-phase planning active for large model profile.
+- **✅ P4 — ACC threshold tuning for 32K** — `config/local_model.yaml` now has profile-specific compaction thresholds (stage1 at 50% → stage6 at 3%).
+- **🟢 P5 — Tool preference auto-save** (~10 lines) — Learned preferences recorded every step but never persisted mid-session. Periodic save needed.
+- **✅ Enhancement — TurboQuant enabled by default** — `config/local_model.yaml` sets `turboquant.enabled: true`.
 
 ### Medium-term
 

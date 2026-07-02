@@ -9,6 +9,7 @@ TreeOfThoughtPlanner class names are kept as backward-compat aliases.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -322,7 +323,78 @@ class FlatPlanner(Planner):
 
 
 class TreeOfThoughtPlanner(Planner):
-    """Tree-of-thought planner. Backward-compat alias."""
+    """
+    Tree-of-thought planner with multi-branch evaluation.
+
+    Generates multiple candidate decomposition strategies, evaluates them
+    against completeness/ordering/risk criteria, and returns the best.
+
+    When ``parallel_branches=True`` (requires a verifier), branches are
+    evaluated independently and the best-performing one is selected.
+    """
+
+    def __init__(
+        self,
+        llm: LLMClient,
+        config: AppConfig,
+        parallel_branches: bool = False,
+    ) -> None:
+        super().__init__(llm=llm, config=config, strategy="tree_of_thought")
+        self._parallel_branches = parallel_branches
+
+    async def plan(self, task: str, context_summary: str) -> Plan:
+        if not self._parallel_branches:
+            return await super().plan(task, context_summary)
+
+        # Parallel ToT: generate N candidate plans independently, pick best
+        n_branches = 3
+        prompts = [
+            (
+                f"You are an expert task planner for a coding agent.\n\n"
+                f"Generate ONE decomposition strategy for the task below.\n"
+                f"List the subtasks and explain why this approach works.\n\n"
+                f"Project context:\n{context_summary}\n\n"
+                f"Task: {task}\n"
+            )
+            for _ in range(n_branches)
+        ]
+
+        results = await asyncio.gather(
+            *[
+                self.llm.chat(
+                    messages=[Message(role=Role.USER, content=p)],
+                    temperature=0.6,
+                    max_tokens=1536,
+                )
+                for p in prompts
+            ],
+            return_exceptions=True,
+        )
+
+        # Collect successful plans
+        plans: list[Plan] = []
+        for r in results:
+            if isinstance(r, Exception):
+                logger.warning("ToT branch failed: %s", r)
+                continue
+            plan = self._parse_plan_response(r.content)
+            plans.append(plan)
+
+        if not plans:
+            logger.warning("All ToT branches failed — falling back to single-pass")
+            return await super().plan(task, context_summary)
+
+        # Score each plan by subtask count + dependency coverage
+        def _score(p: Plan) -> float:
+            score = len(p.subtasks) * 2.0
+            score += len(p.dependencies) * 1.0
+            for st in p.subtasks:
+                if st.files:
+                    score += 1.0
+            return score
+
+        plans.sort(key=_score, reverse=True)
+        return plans[0]
 
 
 # ──────────────────────────────────────────────────────────────

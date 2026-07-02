@@ -131,6 +131,8 @@ Before planning any change, map the territory:
    - Recently churned files with high bug density
    - Deprecated APIs still in use
 
+5. **Reference completed analysis** — See `references/ANALYSIS_FINDINGS.md` for an example Phase 2 deliverable applied to the Meredith codebase. It documents implementation status of 6 improvement targets, gaps discovered, and priority ordering.
+
 **Deliverable:** analysis report with impact graph, dependency map, and risk catalog. Every proposed change in subsequent phases traces back to this analysis.
 
 ### Phase 3: Blueprint (Multi-Stage Planning)
@@ -251,6 +253,7 @@ These files ship with the skill and provide deeper context:
 - [LIGHTWEIGHT_RAG.md](references/LIGHTWEIGHT_RAG.md) — Reference: four lightweight RAG approaches (VelociRAG, SwiftRAG, MiniRAG, Adaptive-k)
 - [GRAPH_RAG.md](references/GRAPH_RAG.md) — Reference: AST-derived code graphs (PyCodeKG, ZoomRAG, GraphRAG-MCP, CodeGraph)
 - [TURBOQUANT.md](references/TURBOQUANT.md) — Reference: MLX TurboQuant ecosystem for Apple Silicon KV cache + weight compression
+- [ANALYSIS_FINDINGS.md](references/ANALYSIS_FINDINGS.md) — Completed Phase 2 analysis for Meredith: implementation status of 6 improvement targets, gaps discovered with file-level locations, and priority ordering
 
 Supporting directories:
 

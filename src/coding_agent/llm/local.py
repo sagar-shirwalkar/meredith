@@ -180,6 +180,50 @@ class LocalLLMClient(LLMClient):
             # Already using MLX — nothing to do
             pass
 
+    async def check_tool_support(self) -> bool:
+        """
+        Probe whether the current model supports tool/function calling.
+
+        Sends a minimal tool-call request to the backend. Returns True
+        if the model responds with a valid tool call, False if it
+        returns a 400 error ("does not support tools") or equivalent.
+
+        This lets the agent gracefully degrade to text-only mode when
+        the model is too small for tool calling (<1B params typically).
+        """
+        await self._ensure_backend()
+
+        probe_schema = ToolSchema(
+            name="ping",
+            description="Probe tool — always succeeds",
+            parameters=[],
+        )
+        probe_messages = [
+            Message(role=Role.USER, content="Call the ping tool."),
+        ]
+
+        try:
+            response = await self.chat(
+                messages=probe_messages,
+                tools=[probe_schema],
+            )
+            has_tool_call = response.tool_calls is not None and len(response.tool_calls) > 0
+            logger.info(
+                "Tool support probe: %s (tool_call=%s)",
+                "supported" if has_tool_call else "not supported (no call returned)",
+                has_tool_call,
+            )
+            return has_tool_call
+        except Exception as exc:
+            err_str = str(exc).lower()
+            if "does not support tools" in err_str or "400" in err_str or "not support" in err_str:
+                logger.warning(
+                    "Tool support probe failed — model does not support tool calling: %s", exc
+                )
+                return False
+            logger.warning("Tool support probe error (retrying without tools): %s", exc)
+            return False
+
     async def _ollama_is_alive(self) -> bool:
         """Check if the Ollama server is responding."""
         try:

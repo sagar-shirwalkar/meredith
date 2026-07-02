@@ -43,19 +43,63 @@ local models (Ollama on Linux/macOS/Windows, MLX on Apple Silicon).
   - agent/ — Core loop, planner, verifier
   - context/ — Context window management
   - tools/ — Tool definitions and executors
+    - base.py — ToolRegistry, schemas, executor ABC
+    - router.py — Pre/post-execution rules, availability
+    - fs.py — read_file, write_file, edit_file, list_directory
+    - search.py — search_code, find_symbols, get_diagnostics
+    - shell.py — run_command (asyncio subprocess)
+    - web.py — web_search, web_fetch
+    - git.py — git_status, git_diff, git_log, git_commit
   - rag/ — Retrieval-Augmented Generation subsystem
   - recovery/ — Loop detection and escape strategies
   - llm/ — LLM client abstractions (remote, local/MLX)
   - memory/ — Cross-session memory store
   - acp/ — ACP server for editor integration
+- scripts/ — Standalone utilities
+  - test_tool_calling.py — Validate model tool-calling compatibility
+  - compact_checkpoints.py — Prune old checkpoints
 - .agents/skills/ — SKILL.md files for agent capabilities
 - .agent/ — Runtime data (index, memory DB, logs) — do not edit manually
 
+## 14 Built-in Tools
+
+All tools are registered in `ToolRegistry` and dispatched via `ToolExecutor` subclasses:
+
+| Tool | Executor | Parameters |
+|------|----------|------------|
+| `read_file` | FsTools | path, start_line?, end_line? |
+| `write_file` | FsTools | path, content |
+| `edit_file` | FsTools | path, search, replace, regex? |
+| `list_directory` | FsTools | path?, recursive? |
+| `search_code` | SearchTools | pattern, path?, file_pattern?, regex?, max_results? |
+| `find_symbols` | SearchTools | query, path? |
+| `get_diagnostics` | SearchTools | path |
+| `run_command` | ShellTools | command, cwd?, timeout? |
+| `web_search` | WebTools | query, max_results? |
+| `web_fetch` | WebTools | url, extract? |
+| `git_status` | GitTools | (none) |
+| `git_diff` | GitTools | staged?, path?, max_lines? |
+| `git_log` | GitTools | n? |
+| `git_commit` | GitTools | message |
+
+## Local Models & Tool Calling
+
+Not all Ollama models support tool calling. Models <1B params (e.g. `gemma3:270m`) return HTTP 400. Use the eval harness to test:
+
+```bash
+uv run python scripts/test_tool_calling.py --model YOUR_MODEL
+```
+
+See `CROSSWALK.md` and `README.md#local-model-guide` for details.
+
+The recommended local profile config is in `config/local_model.yaml`.
+
 ## Testing Instructions
 
-- Run all tests: uv run pytest tests/ -v
+- Run all tests: uv run pytest tests/ -v (264+ tests)
 - Run a single test: uv run pytest tests/test_specific.py -v
 - Run with coverage: uv run pytest tests/ --cov=coding_agent
+- Test tool-calling: uv run python scripts/test_tool_calling.py --list-models
 
 ## PR Instructions
 

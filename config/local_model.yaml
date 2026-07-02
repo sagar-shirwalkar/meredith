@@ -17,7 +17,7 @@ llm:
   # Enables running 27B-32B models on 24GB unified memory.
   # See .agents/skills/agentic-improvements/references/TURBOQUANT.md
   turboquant:
-    enabled: false
+    enabled: true # Enable KV cache + weight compression for Apple Silicon
     kv_bits: 3 # 3-bit KV cache (K8/V3 mixed precision)
     weight_bits: 4 # 4-bit weights
     sink_tokens: 128 # First N tokens kept at full precision
@@ -38,6 +38,16 @@ context:
     episodic: { priority: 3, max_tokens: 2000 }
     semantic: { priority: 4, max_tokens: 1000 }
     scratch: { priority: 5, max_tokens: 500 }
+  # ACC thresholds tuned for 32K context — stages fire at tighter
+  # fractions than the 200K defaults so compaction starts earlier
+  # relative to budget.
+  compaction:
+    stage1_budget_reduction: 0.50 # 16K remaining
+    stage2_observation_masking: 0.35 # 11K remaining
+    stage3_fast_pruning: 0.22 # 7K remaining
+    stage4_aggressive_compression: 0.12 # 3.8K remaining
+    stage5_reversible_collapse: 0.06 # 2K remaining
+    stage6_full_llm: 0.03 # 1K remaining — not 4% (1280)
 
 tools:
   router:

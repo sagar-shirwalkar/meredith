@@ -21,6 +21,7 @@ The loop:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -33,12 +34,14 @@ from coding_agent.context.budget import TokenBudget
 from coding_agent.context.compactor import ContextCompactor
 from coding_agent.context.manager import ContextManager
 from coding_agent.llm.base import LLMClient, StreamEvent
+from coding_agent.llm.local import LocalLLMClient
 from coding_agent.memory.store import MemoryStore
 from coding_agent.rag.retriever import Retriever
 from coding_agent.recovery.detector import LoopDetector
 from coding_agent.recovery.meta_thinker import MetaThinker
 from coding_agent.recovery.strategies import LoopRecovery
 from coding_agent.tools.base import ToolRegistry
+from coding_agent.tools.preferences import ToolPreferences
 from coding_agent.tools.router import ToolRouter
 from coding_agent.types import (
     AgentState,
@@ -142,6 +145,9 @@ class AgentCore:
         # Track consecutive recovery attempts
         self._recovery_attempts = 0
 
+        # Concurrent verification: background task from previous step
+        self._pending_verification: asyncio.Task | None = None
+
     # ── Lifecycle ─────────────────────────────────────────────
 
     async def start(self) -> None:
@@ -180,10 +186,16 @@ class AgentCore:
         self._tools = ToolRegistry(config=cfg)
         await self._tools.setup()  # Discovers and registers all tools
 
-        # Router
+        # Tool learned preferences (None if disabled in config)
+        self._tool_prefs: ToolPreferences | None = ToolPreferences(
+            store_path=cfg.agent.working_directory + "/.agent/tool_preferences.json",
+        )
+
+        # Router (with optional learned preferences)
         self._router = ToolRouter(
             config=cfg,
             registry=self._tools,
+            preferences=self._tool_prefs if cfg.tools.router.learned_preferences else None,
         )
 
         # RAG retriever
@@ -198,6 +210,17 @@ class AgentCore:
         # Recovery
         self._recovery_detector = LoopDetector(config=cfg.recovery)
         self._recovery_strategies = LoopRecovery(llm=self.llm, config=cfg)
+
+        # Auto-detect tool support for local models
+        self._tools_enabled = True
+        if cfg.llm.provider == "local" and isinstance(self.llm, LocalLLMClient):
+            self._tools_enabled = await self.llm.check_tool_support()
+            if not self._tools_enabled:
+                logger.warning(
+                    "Tool calling unsupported by %s — falling back to text-only mode",
+                    cfg.llm.model,
+                )
+                self._tier = RuntimeTier.SMALL
 
         # Meta-Thinker monitor
         self._meta_thinker = MetaThinker(
@@ -328,7 +351,38 @@ class AgentCore:
                             )
                         )
 
-            # 2. Check budget — ACC staged compaction + tier degradation
+            # 2. Collect any pending concurrent verification result
+            #    (overlapped with the previous step's execution)
+            if self._pending_verification is not None:
+                if self._pending_verification.done():
+                    try:
+                        verification = self._pending_verification.result()
+                        if not verification.passed:
+                            logger.info("Concurrent verification: %s", verification.message)
+                            content = (
+                                f"⚠️ Verification issue: {verification.message}"
+                                "\nPlease fix this before proceeding."
+                            )
+                            self._messages.append(Message(role=Role.SYSTEM, content=content))
+                    except Exception as exc:
+                        logger.warning("Verification task failed: %s", exc)
+                    self._pending_verification = None
+                else:
+                    # Not done yet — await it (should be rare; verifier is fast)
+                    logger.debug("Waiting for pending verification task...")
+                    try:
+                        verification = await self._pending_verification
+                        if not verification.passed:
+                            content = (
+                                f"⚠️ Verification issue: {verification.message}"
+                                "\nPlease fix this before proceeding."
+                            )
+                            self._messages.append(Message(role=Role.SYSTEM, content=content))
+                    except Exception as exc:
+                        logger.warning("Verification task failed: %s", exc)
+                    self._pending_verification = None
+
+            # 3. Check budget — ACC staged compaction + tier degradation
             if self._budget:
                 remaining = self._budget.remaining_fraction()
                 if remaining < 0.10 and self._tier == RuntimeTier.LARGE:
@@ -344,7 +398,15 @@ class AgentCore:
                 if self._compactor:
                     self._messages = self._compactor.compact(self._messages, remaining)
 
-            # 3. Execute one step
+                # ACC Stage 6: async LLM summarization (cheapest-first means
+                # we only reach this when cheaper stages are insufficient)
+                if self._compactor and self._compactor.should_run_llm_summarization(remaining):
+                    await self._compactor.stage_full_llm(
+                        self._messages,
+                        llm_summarize=self._llm_summarize,
+                    )
+
+            # 4. Execute one step
             step = await self._execute_step()
             if step is None:
                 # LLM returned no tool call and no actionable content → done or stuck
@@ -399,8 +461,15 @@ class AgentCore:
                             )
                         )
 
-            # 7. Post-step: verification
-            if self._verifier:
+            # 7. Concurrent verification: kick off background task
+            # The result will be consumed at the top of the next loop
+            # iteration, overlapping verification with the next LLM call.
+            if self._verifier and self.config.agent.verifier_concurrent:
+                self._pending_verification = asyncio.create_task(
+                    self._verifier.verify(step, self.state)
+                )
+            elif self._verifier:
+                # Synchronous fallback when concurrent mode is off
                 verification = await self._verifier.verify(step, self.state)
                 if not verification.passed:
                     logger.info("Verification failed: %s", verification.message)
@@ -415,7 +484,7 @@ class AgentCore:
                         )
                     )
 
-            # 7. Checkpoint
+            # 8. Checkpoint (non-blocking — fast I/O)
             if self.state.step_count % self.config.agent.checkpoint_every_n_steps == 0:
                 self._checkpoint()
 
@@ -453,6 +522,11 @@ class AgentCore:
         # Get available tools (filtered by router for this context)
         available_tools = self._router.get_available_tools(self.state)
         tool_schemas = [self._tools.schemas[t] for t in available_tools if t in self._tools.schemas]
+
+        # If tool calling is unsupported (auto-detected at startup),
+        # skip tool schemas entirely — model generates text only
+        if not self._tools_enabled:
+            tool_schemas = []
 
         # Call LLM
         step_number = self.state.step_count + 1
@@ -516,6 +590,17 @@ class AgentCore:
 
         # If no tool calls, the agent is done or just reasoning
         if not tool_calls:
+            # ── Non-tool graceful degradation ──────────────────
+            # When the model can't call tools, try to parse a
+            # natural-language command from the text response.
+            if not self._tools_enabled and response_content.strip():
+                step_result = await self._try_text_mode(
+                    response_content,
+                    step_number,
+                    start_time,
+                )
+                if step_result is not None:
+                    return step_result
             return None
 
         # Execute each tool call
@@ -541,6 +626,14 @@ class AgentCore:
             )
         )
 
+        # Record in learned preferences (non-blocking I/O)
+        if self._tool_prefs:
+            self._tool_prefs.record_result(
+                tool_name=call.name,
+                success=result.success,
+                duration_seconds=result.duration_seconds,
+            )
+
         # Update state tracking
         if call.name in ("edit_file", "write_file"):
             path = call.arguments.get("path", "")
@@ -558,6 +651,87 @@ class AgentCore:
             tool_result=result,
         )
 
+    # ── Non-tool graceful degradation ───────────────────────
+
+    async def _try_text_mode(
+        self,
+        response_content: str,
+        step_number: int,
+        start_time: float,
+    ) -> Step | None:
+        """
+        Try to parse a natural-language command from the LLM's text
+        response when tool calling is unavailable.
+
+        Uses a regex-based parser that understands commands like:
+          "read src/main.py lines 20-40"
+          "edit src/main.py `old text` -> `new text`"
+          "search for class AgentCore"
+          "run pytest tests/ -v"
+
+        Returns a Step if parsed and executed, None if no command
+        was found in the text.
+        """
+        from coding_agent.tools.text_mode_parser import (
+            extract_command_from_response,
+            parse_text_command,
+        )
+
+        cmd_text = extract_command_from_response(response_content)
+        if not cmd_text:
+            return None
+
+        call = parse_text_command(cmd_text)
+        if call is None:
+            return None
+
+        logger.info("Text-mode parsed: %s(%s)", call.name, call.arguments)
+
+        # Pre-execution routing (clamp ranges, set defaults)
+        call = self._router.pre_execute(call, self.state)
+
+        # Execute
+        result = await self._tools.execute(call)
+
+        # Post-execution routing (truncate output, log hints)
+        result = self._router.post_execute(call, result, self.state)
+
+        # Record tool result in conversation
+        self._messages.append(
+            Message(
+                role=Role.TOOL,
+                content=result.output,
+                tool_call_id=call.id,
+                name=call.name,
+            )
+        )
+
+        # Record in learned preferences
+        if self._tool_prefs:
+            self._tool_prefs.record_result(
+                tool_name=call.name,
+                success=result.success,
+                duration_seconds=result.duration_seconds,
+            )
+
+        # Update state tracking
+        if call.name in ("edit_file", "write_file"):
+            path = call.arguments.get("path", "")
+            if path:
+                self.state.files_modified.add(path)
+        elif call.name in ("read_file", "search_code", "find_symbols", "list_directory"):
+            path = call.arguments.get("path", "")
+            if path:
+                self.state.files_read.add(path)
+
+        return Step(
+            step_number=step_number,
+            thinking=response_content[:500],
+            tool_call=call,
+            tool_result=result,
+        )
+
+    # ── Tier application ────────────────────────────────────
     # ── System message builder ────────────────────────────────
 
     def _build_system_message(self) -> Message:
@@ -597,6 +771,37 @@ class AgentCore:
             frac = self._budget.remaining_fraction()
             msg = f"[Resource constraint: tier={tier}, budget={frac:.0%} remaining]"
             self._messages.append(Message(role=Role.SYSTEM, content=msg))
+
+    # ── ACC Stage 6 LLM summarizer ────────────────────────────
+
+    async def _llm_summarize(self, conversation_text: str) -> str:
+        """
+        Lightweight LLM call to compress mid-conversation history.
+
+        Uses a short prompt with two-phase CoT: the LLM reasons
+        about what to keep, then outputs a structured summary.
+        The CoT is consumed (not kept in context).
+        """
+        prompt = (
+            "Compress this conversation for a coding agent.\n"
+            "First, reason step-by-step about what to keep.\n"
+            "Then output a structured summary with:\n"
+            "  - GOAL: What was the task?\n"
+            "  - PROGRESS: What has been done?\n"
+            "  - FINDINGS: What was discovered?\n"
+            "  - NEXT: What remains?\n\n"
+            f"{conversation_text}"
+        )
+        try:
+            response = await self.llm.chat(
+                messages=[Message(role=Role.USER, content=prompt)],
+                temperature=0.2,
+                max_tokens=1024,
+            )
+            return response.content
+        except Exception as exc:
+            logger.warning("LLM summarization failed: %s", exc)
+            return "[summarization unavailable]"
 
     # ── Context helpers ───────────────────────────────────────
 

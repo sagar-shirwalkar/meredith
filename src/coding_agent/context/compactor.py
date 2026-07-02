@@ -335,6 +335,31 @@ class ContextCompactor:
                 )
             )
 
+    # ── Stage 6 public API ────────────────────────────────────
+
+    def should_run_llm_summarization(self, budget_remaining: float) -> bool:
+        """
+        Returns True when the budget is low enough that Stage 6
+        (LLM summarization) should be triggered.
+
+        This is a separate check from compact() so the caller can
+        handle the async LLM call in its own event loop context.
+        """
+        return budget_remaining < self.config.stage6_full_llm
+
+    async def stage_full_llm(
+        self,
+        messages: list[Message],
+        llm_summarize: Any,  # Callable[[str], Awaitable[str]]
+    ) -> None:
+        """
+        Public async wrapper for Stage 6 LLM summarization.
+
+        Mutates *messages* in place with the summarised result
+        and stores a reference on self for rehydration.
+        """
+        await self._stage_full_llm_async(messages, llm_summarize)
+
     # ── Post-compaction rehydration ────────────────────────────
 
     def prepare_rehydration(

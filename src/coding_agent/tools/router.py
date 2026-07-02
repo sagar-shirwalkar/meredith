@@ -19,6 +19,7 @@ import logging
 
 from coding_agent.config import AppConfig
 from coding_agent.tools.base import ToolRegistry
+from coding_agent.tools.preferences import ToolPreferences
 from coding_agent.types import AgentState, ToolCall, ToolResult
 
 logger = logging.getLogger(__name__)
@@ -64,12 +65,21 @@ class ToolRouter:
 
     The router does NOT execute tools — it just filters and modifies
     calls before/after execution by the ToolRegistry.
+
+    When ``learned_preferences`` is enabled, tool availability is
+    weighted by historical success rate per tool and per category.
     """
 
-    def __init__(self, config: AppConfig, registry: ToolRegistry) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        registry: ToolRegistry,
+        preferences: ToolPreferences | None = None,
+    ) -> None:
         self.config = config
         self.registry = registry
         self.strategy = config.tools.router.strategy
+        self.preferences = preferences
 
     # ── Tool availability ─────────────────────────────────────
 
@@ -110,6 +120,13 @@ class ToolRouter:
 
         # Filter to only tools that are actually registered
         available = [t for t in tools if t in self.registry.schemas]
+
+        # Re-rank by learned preferences (when enabled and data exists)
+        if self.preferences and self.config.tools.router.learned_preferences:
+            available.sort(
+                key=lambda t: self.preferences.get_weight(t),
+                reverse=True,
+            )
 
         return available
 

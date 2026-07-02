@@ -13,7 +13,7 @@ llm:
   streaming: true
 
 agent:
-  planner_type: "tree_of_thought" # "tree_of_thought" | "flat"
+  planner_type: "hierarchical" # "tree_of_thought" | "flat" | "hierarchical"
   planner_model: null # null = use same model; or specify a cheaper one
   verifier_concurrent: true # Run verifier speculatively alongside next step
   max_steps: 80 # Large models can handle longer tasks

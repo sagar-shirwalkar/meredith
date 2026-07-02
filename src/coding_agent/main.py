@@ -80,6 +80,7 @@ def create_llm_client(config: AppConfig) -> LLMClient:
             mlx_fallback=llm_cfg.mlx_fallback,
             temperature=llm_cfg.temperature,
             max_tokens=llm_cfg.max_response_tokens,
+            turboquant=llm_cfg.turboquant,
         )
     else:
         valid = ["remote", "local"]
