@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shlex
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -89,7 +88,7 @@ class ShellTools(ToolExecutor):
                 error="" if success else f"exit code {exit_code}",
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ToolResult(
                 tool_call_id=call.id,
                 tool_name=call.name,
