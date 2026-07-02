@@ -146,7 +146,7 @@ class AgentCore:
         self._recovery_attempts = 0
 
         # Concurrent verification: background task from previous step
-        self._pending_verification: asyncio.Task | None = None
+        self._pending_verification: asyncio.Task[Any] | None = None
 
     # ── Lifecycle ─────────────────────────────────────────────
 
@@ -672,6 +672,9 @@ class AgentCore:
         Returns a Step if parsed and executed, None if no command
         was found in the text.
         """
+        assert self._tools is not None
+        assert self._router is not None
+
         from coding_agent.tools.text_mode_parser import (
             extract_command_from_response,
             parse_text_command,

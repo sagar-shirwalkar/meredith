@@ -168,7 +168,7 @@ class ToolPreferences:
                 data = json.loads(raw)
                 # Ensure structure is valid
                 if "tools" in data and "categories" in data:
-                    return data
+                    return dict(data)
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("Failed to load tool preferences: %s", exc)
         return {"tools": {}, "categories": {}}

@@ -374,7 +374,7 @@ class TreeOfThoughtPlanner(Planner):
         # Collect successful plans
         plans: list[Plan] = []
         for r in results:
-            if isinstance(r, Exception):
+            if isinstance(r, BaseException):
                 logger.warning("ToT branch failed: %s", r)
                 continue
             plan = self._parse_plan_response(r.content)

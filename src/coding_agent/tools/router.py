@@ -122,9 +122,10 @@ class ToolRouter:
         available = [t for t in tools if t in self.registry.schemas]
 
         # Re-rank by learned preferences (when enabled and data exists)
-        if self.preferences and self.config.tools.router.learned_preferences:
+        prefs = self.preferences
+        if prefs is not None and self.config.tools.router.learned_preferences:
             available.sort(
-                key=lambda t: self.preferences.get_weight(t),
+                key=lambda t: prefs.get_weight(t),
                 reverse=True,
             )
 
