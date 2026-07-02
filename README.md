@@ -1,7 +1,7 @@
 # Meredith
 
 [![Python](https://img.shields.io/badge/Python-3.13-fbad2b?style=for-the-badge&label=Python&labelColor=gray&logo=python&logoColor=blue)](https://python.org)
-[![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/meredith/v0.3.1?style=for-the-badge)](https://github.com/sagar-shirwalkar/meredith/actions)
+[![GitHub tag check runs](https://img.shields.io/github/check-runs/sagar-shirwalkar/meredith/v0.3.2?style=for-the-badge)](https://github.com/sagar-shirwalkar/meredith/actions)
 [![OSSF-Scorecard Score](https://img.shields.io/ossf-scorecard/github.com/sagar-shirwalkar/meredith?style=for-the-badge&label=OSSF%20Scorecard)](https://securityscorecards.dev/viewer/?uri=github.com/sagar-shirwalkar/meredith)
 [![AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](LICENSE)
 
@@ -517,7 +517,7 @@ args:
   - coding_agent.acp.server
   - --profile
   - large_model
-version: 0.3.1
+version: 0.3.2
 ```
 
 3. **Add an icon** — use the icon at [`assets/meredith.svg`](assets/meredith.svg).
@@ -545,8 +545,8 @@ The project uses GitHub Actions for continuous integration and automated publish
 ### Manual release
 
 ```bash
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.3.2
+git push origin v0.3.2
 # Create a GitHub Release from the tag; CI publishes to PyPI.
 ```
 
